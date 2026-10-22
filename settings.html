@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SurfinLive — Settings</title>
+  <!-- theme.js must load BEFORE the stylesheet paints, or Light mode flashes dark -->
+  <script src="theme.js"></script>
+  <link rel="stylesheet" href="styles.css?v=35" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <span class="logo">🏄</span>
+      <div>
+        <h1>SurfinLive</h1>
+        <p class="tagline">Settings · appearance &amp; preferences</p>
+        <br>
+      </div>
+    </div>
+    <nav class="nav">
+      <a class="nav-link" href="dashboard.html">Dashboard</a>
+      <a class="nav-link" href="index.html">Live View</a>
+      <!-- <a class="nav-link" href="dyn.html">Dynamic View</a> -->
+      <a class="nav-link" href="judge.html">Judge Panel</a>
+      <a class="nav-link active" href="settings.html">Settings</a>
+    </nav>
+  </header>
+
+  <main class="settings-wrap">
+    <section class="panel settings-panel">
+      <h2>Appearance</h2>
+      <p class="hint">Choose how SurfinLive looks. The choice applies to every page and is remembered on this device.</p>
+
+      <div class="radio-group" role="radiogroup" aria-label="Color theme">
+        <label class="radio-option" for="theme-dark">
+          <input type="radio" id="theme-dark" name="theme" value="dark" />
+          <span class="radio-text">
+            <span class="radio-label">Dark Mode</span>
+            <span class="radio-desc">Light text on a deep navy background. Default — best for dimly lit broadcast booths.</span>
+          </span>
+        </label>
+
+        <label class="radio-option" for="theme-light">
+          <input type="radio" id="theme-light" name="theme" value="light" />
+          <span class="radio-text">
+            <span class="radio-label">Light Mode</span>
+            <span class="radio-desc">Black text on white with high-contrast buttons. Best in daylight and for projection.</span>
+          </span>
+        </label>
+      </div>
+
+      <p id="settings-saved" class="settings-saved" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="panel settings-panel">
+      <h2>Bracket</h2>
+      <p class="hint">Configure how the tournament bracket is built. These settings are remembered on this device and apply to every tournament you generate.</p>
+
+      <form class="settings-form" id="bracket-settings" autocomplete="off">
+        <div class="field">
+          <label class="field-label" for="contestants-per-show">Contestants per show</label>
+          <span class="field-desc">The base number of contestants in each show (3–8). A show holds this many or one more; the top 2 of every show advance. Default 4 — historical "shows of 4 or 5".</span>
+          <span class="field-row">
+            <input
+              class="text-input"
+              type="number"
+              id="contestants-per-show"
+              name="contestantsPerShow"
+              min="3"
+              max="8"
+              step="1"
+              value="4"
+            />
+            <button type="submit" class="btn btn-primary" id="cps-ok" form="bracket-settings">OK</button>
+          </span>
+        </div>
+        <p id="bracket-saved" class="settings-saved" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <span>SurfinLive · preferences are stored locally in your browser. No data leaves this device.</span>
+  </footer>
+
+  <script>document.querySelectorAll('.app-footer span').forEach(function (s) { s.textContent = 'Powered by PSOI Kota Depok - ' + new Date().getFullYear(); });</script>
+
+  <script src="settings-store.js?v=3"></script>
+  <script src="settings.js?v=3"></script>
+</body>
+</html>

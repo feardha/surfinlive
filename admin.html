@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SurfinLive — Admin Console</title>
+  <!-- Role gate: only administrators (1) may view this page. -->
+  <script src="role-gate.js" data-allow="1"></script>
+  <style>
+    :root {
+      --bg: #0b1220; --panel: #121b2e; --panel-2: #18243b; --line: #243349;
+      --text: #e6edf6; --muted: #8da0bd; --primary: #2dd4bf; --primary-ink: #042f2a;
+      --elim: #f87171; --radius: 12px; --shadow: 0 6px 22px rgba(0,0,0,.35);
+      --input-bg: #0c1422; --overlay: rgba(4,8,16,.62);
+    }
+    /* License expiry date field — keep the native calendar icon visible
+       and tint it teal in dark mode. */
+    #licenseExpiry {
+      color-scheme: dark;
+      color: var(--text);
+    }
+    #licenseExpiry::-webkit-calendar-picker-indicator {
+      /* tints the default dark/white glyph to SurfinLive teal (#2dd4bf) */
+      filter: invert(56%) sepia(58%) saturate(540%) hue-rotate(125deg) brightness(94%) contrast(88%);
+      cursor: pointer;
+      opacity: 1;
+    }
+    #licenseExpiry::-moz-calendar-picker-indicator {
+      filter: invert(56%) sepia(58%) saturate(540%) hue-rotate(125deg) brightness(94%) contrast(88%);
+      cursor: pointer;
+      opacity: 1;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body {
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background:
+        radial-gradient(900px 500px at 50% -10%, #15233c, transparent),
+        var(--bg);
+      color: var(--text);
+      padding: 32px 20px 64px;
+      line-height: 1.45;
+    }
+    .wrap { max-width: 1040px; margin: 0 auto; }
+    .head { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
+    .head h1 { font-size: 22px; margin: 0; }
+    .head .sub { color: var(--muted); font-size: 13px; }
+    .logo {
+      width: 38px; height: 38px; border-radius: 10px; flex: 0 0 auto;
+      background: linear-gradient(135deg, var(--primary), #38bdf8);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; color: var(--primary-ink);
+    }
+    .grid { display: grid; grid-template-columns: 380px 1fr; gap: 22px; }
+    @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+    .card {
+      background: var(--panel); border: 1px solid var(--line);
+      border-radius: var(--radius); box-shadow: var(--shadow); padding: 22px;
+    }
+    .card h2 { margin: 0 0 16px; font-size: 16px; }
+    /* Card header with search box pinned to the top-right */
+    .card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+    .card-head h2 { margin: 0; }
+    .search { display: flex; gap: 8px; align-items: center; }
+    .search input {
+      width: 240px; max-width: 60vw; padding: 8px 12px; border-radius: 9px;
+      border: 1px solid var(--line); background: var(--input-bg);
+      color: var(--text); font-size: 13px; outline: none;
+    }
+    .search input:focus { border-color: var(--primary); }
+    .btn-search {
+      padding: 8px 14px; border-radius: 9px; cursor: pointer; font-size: 13px;
+      border: 1px solid var(--primary); background: var(--primary); color: var(--primary-ink);
+      font-weight: 600;
+    }
+    .btn-search:hover { filter: brightness(1.05); }
+    .btn-search.ghost { background: var(--panel-2); color: var(--text); border-color: var(--line); }
+    label { display: block; font-size: 13px; color: var(--muted); margin: 14px 0 6px; }
+    input, select {
+      width: 100%; padding: 10px 12px; border-radius: 9px;
+      border: 1px solid var(--line); background: var(--input-bg);
+      color: var(--text); font-size: 14px; outline: none;
+    }
+    input:focus, select:focus { border-color: var(--primary); }
+    .row2 { display: flex; gap: 12px; align-items: flex-end; }
+    .row2 > div { flex: 1; }
+    .opt-toggle { display: flex; align-items: center; gap: 8px; margin-top: 16px; font-size: 13px; color: var(--muted); }
+    .opt-toggle input { width: auto; }
+    #licenseFields { display: none; margin-top: 6px; }
+    button.primary {
+      margin-top: 18px; width: 100%; padding: 11px 14px; border: 0; cursor: pointer;
+      border-radius: 9px; font-weight: 700; font-size: 14px;
+      background: var(--primary); color: var(--primary-ink);
+    }
+    button.primary:hover { filter: brightness(1.05); }
+    /* Top-right logout button (normal flow — scrolls with the page, not floating).
+       Negative right margin cancels body's 20px right padding so the button
+       sits flush against the viewport's top-right corner. */
+    .topbar { display: flex; justify-content: flex-end; margin: 0 -20px 8px 0; z-index: 20; }
+    .btn-logout {
+      background: var(--panel-2); color: var(--text);
+      border: 1px solid var(--line); border-radius: 999px;
+      padding: 8px 16px; font-size: 13px; cursor: pointer;
+      display: flex; align-items: center; gap: 7px;
+    }
+    .btn-logout:hover { border-color: var(--primary); color: var(--primary); }
+    .btn-logout svg { width: 15px; height: 15px; }
+    .msg { margin-top: 14px; font-size: 13px; min-height: 18px; }
+    .msg.ok { color: var(--primary); }
+    .msg.err { color: var(--elim); }
+
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 10px 10px; border-bottom: 1px solid var(--line); }
+    th { color: var(--muted); font-weight: 600; white-space: nowrap; }
+    td.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .empty { color: var(--muted); padding: 18px 10px; }
+    .pager { display: flex; align-items: center; justify-content: space-between; margin-top: 16px; }
+    .pager button {
+      background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+      border-radius: 8px; padding: 7px 14px; cursor: pointer; font-size: 13px;
+    }
+    .pager button:disabled { opacity: .4; cursor: not-allowed; }
+    .pager .info { color: var(--muted); font-size: 13px; }
+    code.badge { background: var(--panel-2); padding: 2px 6px; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <button class="btn-logout" id="logoutBtn" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+        <polyline points="16 17 21 12 16 7" />
+        <line x1="21" y1="12" x2="9" y2="12" />
+      </svg>
+      Sign out
+    </button>
+  </div>
+
+  <div class="wrap">
+    <div class="head">
+      <div class="logo">SL</div>
+      <div>
+        <h1>Admin Console</h1>
+        <div class="sub">Create users &amp; view the registered users table</div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <!-- Create user form -->
+      <div class="card">
+        <h2>New user</h2>
+        <form id="userForm" autocomplete="off">
+          <label for="name">Username</label>
+          <input id="name" name="name" type="text" placeholder="e.g. Jane Doe" required />
+
+          <label for="role">User role</label>
+          <select id="role" name="role" required>
+            <option value="">Loading roles…</option>
+          </select>
+
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" placeholder="user@example.com" required />
+
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" placeholder="••••••••" required />
+
+          <div class="opt-toggle">
+            <input type="checkbox" id="licenseOn" />
+            <label for="licenseOn" style="margin:0;">Generate license key &amp; expiry</label>
+          </div>
+
+          <div id="licenseFields">
+            <label for="licenseExpiry">License expiry (date)</label>
+            <input id="licenseExpiry" name="licenseExpiry" type="date" />
+          </div>
+
+          <button class="primary" type="submit">Submit</button>
+          <div class="msg" id="formMsg"></div>
+        </form>
+      </div>
+
+      <!-- Registered users table -->
+      <div class="card">
+        <div class="card-head">
+          <h2>Registered users</h2>
+          <div class="search">
+            <input id="searchBox" type="search" placeholder="Search by ID, username, or email…" />
+            <button id="searchBtn" class="btn-search" type="button">Search</button>
+            <button id="searchClear" class="btn-search ghost" type="button">Clear</button>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>User ID</th>
+              <th>Username</th>
+              <th>Role</th>
+              <th>Email</th>
+              <th>License key</th>
+              <th>Expiry</th>
+            </tr>
+          </thead>
+          <tbody id="userRows">
+            <tr><td class="empty" colspan="6">Loading…</td></tr>
+          </tbody>
+        </table>
+        <div class="pager">
+          <button id="prevBtn" disabled>← Prev</button>
+          <span class="info" id="pageInfo">Page 1</span>
+          <button id="nextBtn" disabled>Next →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API = "";  // same origin
+    let currentPage = 1;
+
+    // ---- Populate role dropdown from glossary (user_roles scope) ----------
+    async function loadRoles() {
+      const sel = document.getElementById("role");
+      try {
+        const res = await fetch(API + "/api/glossary/user_roles", { credentials: "same-origin" });
+        if (res.status === 401 || res.status === 403) { renderAuthError(); return; }
+        const data = await res.json();
+        sel.innerHTML = '<option value="">Select role…</option>';
+        (data.items || []).forEach(it => {
+          const o = document.createElement("option");
+          o.value = it.code;
+          o.textContent = it.remark + " (" + it.code + ")";
+          sel.appendChild(o);
+        });
+      } catch (e) {
+        sel.innerHTML = '<option value="">(failed to load roles)</option>';
+      }
+    }
+
+    // ---- Render user rows into the table ---------------------------------
+    function renderRows(users, infoText) {
+      const tbody = document.getElementById("userRows");
+      const info = document.getElementById("pageInfo");
+      if (!users.length) {
+        tbody.innerHTML = '<tr><td class="empty" colspan="6">No users found.</td></tr>';
+      } else {
+        tbody.innerHTML = users.map(u => `
+          <tr>
+            <td class="mono"><code class="badge">${esc(u.user_id)}</code></td>
+            <td>${esc(u.name)}</td>
+            <td>${esc(u.role_remark || ("role " + u.role_id))}</td>
+            <td>${esc(u.email)}</td>
+            <td class="mono">${u.license_key ? esc(u.license_key) : "<span style='color:var(--muted)'>—</span>"}</td>
+            <td>${u.license_expiry ? esc(u.license_expiry) : "<span style='color:var(--muted)'>—</span>"}</td>
+          </tr>`).join("");
+      }
+      info.textContent = infoText;
+    }
+
+    // ---- Load + render users (paginated) ----------------------------------
+    async function loadUsers(page) {
+      currentPage = page || 1;
+      const tbody = document.getElementById("userRows");
+      const info = document.getElementById("pageInfo");
+      tbody.innerHTML = '<tr><td class="empty" colspan="6">Loading…</td></tr>';
+      try {
+        const res = await fetch(API + "/api/users?page=" + currentPage, { credentials: "same-origin" });
+        if (res.status === 401 || res.status === 403) { renderAuthError(); return; }
+        const data = await res.json();
+        const users = data.users || [];
+        renderRows(users, "");
+        const total = data.total || 0;
+        const per = data.per_page || 10;
+        const pages = Math.max(1, Math.ceil(total / per));
+        info.textContent = "Page " + currentPage + " / " + pages + "  (" + total + " users)";
+        document.getElementById("prevBtn").disabled = currentPage <= 1;
+        document.getElementById("nextBtn").disabled = currentPage >= pages;
+        document.querySelector(".pager").style.display = "";
+      } catch (e) {
+        tbody.innerHTML = '<tr><td class="empty" colspan="6">Failed to load users.</td></tr>';
+      }
+    }
+
+    // ---- Search users (by ID / username / email) --------------------------
+    async function searchUsers(q) {
+      q = (q || "").trim();
+      const tbody = document.getElementById("userRows");
+      tbody.innerHTML = '<tr><td class="empty" colspan="6">Searching…</td></tr>';
+      try {
+        const res = await fetch(API + "/api/users/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({ q: q }),
+        });
+        if (res.status === 401 || res.status === 403) { renderAuthError(); return; }
+        const data = await res.json();
+        const users = data.users || [];
+        // Search returns ALL matches (not paginated), so keep the pager hidden
+        // while results are shown; it is restored on Clear / empty box.
+        document.querySelector(".pager").style.display = "none";
+        renderRows(users, q
+          ? "Matches for “" + q + "”: " + users.length
+          : users.length + " users");
+      } catch (e) {
+        tbody.innerHTML = '<tr><td class="empty" colspan="6">Search failed.</td></tr>';
+      }
+    }
+
+    function esc(s) {
+      return String(s == null ? "" : s)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    // Shown when the caller is not an authenticated administrator.
+    function renderAuthError() {
+      document.getElementById("userRows").innerHTML =
+        '<tr><td class="empty" colspan="6">🔒 Admin access required. ' +
+        'Sign in as an administrator, then reopen this page.</td></tr>';
+      document.getElementById("pageInfo").textContent = "";
+      document.getElementById("prevBtn").disabled = true;
+      document.getElementById("nextBtn").disabled = true;
+      const sel = document.getElementById("role");
+      sel.innerHTML = '<option value="">Admin only</option>';
+      sel.disabled = true;
+      const msg = document.getElementById("formMsg");
+      msg.className = "msg err";
+      msg.textContent = "Admin access required.";
+    }
+
+    // ---- Create user -------------------------------------------------------
+    document.getElementById("userForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const msg = document.getElementById("formMsg");
+      msg.className = "msg";
+      msg.textContent = "";
+      const payload = {
+        name: document.getElementById("name").value.trim(),
+        email: document.getElementById("email").value.trim(),
+        password: document.getElementById("password").value,
+        role_id: document.getElementById("role").value
+          ? parseInt(document.getElementById("role").value, 10) : null,
+      };
+      if (document.getElementById("licenseOn").checked) {
+        const d = document.getElementById("licenseExpiry").value;
+        if (d) payload.license_expiry = d + "T23:59:59";
+      }
+      try {
+        const res = await fetch(API + "/api/users", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          msg.className = "msg err";
+          msg.textContent = "Error: " + (data.error || res.status);
+          return;
+        }
+        msg.className = "msg ok";
+        msg.textContent = "Created " + data.role_remark + " " + data.name
+          + " (ID " + data.user_id + ")"
+          + (data.license_key ? " with license " + data.license_key : "");
+        e.target.reset();
+        document.getElementById("licenseFields").style.display = "none";
+        loadUsers(1);  // refresh table
+      } catch (err) {
+        msg.className = "msg err";
+        msg.textContent = "Request failed: " + err.message;
+      }
+    });
+
+    // ---- License toggle ----------------------------------------------------
+    document.getElementById("licenseOn").addEventListener("change", (e) => {
+      document.getElementById("licenseFields").style.display =
+        e.target.checked ? "block" : "none";
+    });
+
+    // ---- Pager -------------------------------------------------------------
+    document.getElementById("prevBtn").addEventListener("click", () => loadUsers(currentPage - 1));
+    document.getElementById("nextBtn").addEventListener("click", () => loadUsers(currentPage + 1));
+
+    // ---- Search ------------------------------------------------------------
+    document.getElementById("searchBtn").addEventListener("click", () => {
+      searchUsers(document.getElementById("searchBox").value);
+    });
+    document.getElementById("searchBox").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); searchUsers(e.target.value); }
+    });
+    document.getElementById("searchBox").addEventListener("input", (e) => {
+      // Live search: empty box restores the full paginated list.
+      if (!e.target.value.trim()) loadUsers(1);
+    });
+    document.getElementById("searchClear").addEventListener("click", () => {
+      document.getElementById("searchBox").value = "";
+      loadUsers(1);
+    });
+
+    // ---- Init --------------------------------------------------------------
+    document.getElementById("logoutBtn").addEventListener("click", async () => {
+      try {
+        await fetch(API + "/api/logout", {
+          method: "POST",
+          credentials: "same-origin",
+        });
+      } catch (e) { /* ignore network errors; we redirect regardless */ }
+      window.location.href = "/login.html";
+    });
+
+    // ---- Init --------------------------------------------------------------
+    loadRoles();
+    loadUsers(1);
+  </script>
+</body>
+</html>

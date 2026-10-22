@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "jsdom": "^30.0.1",
+    "table-dragger": "^2.0.5"
+  }
+}

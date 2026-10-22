@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Role gate: only athletes (3) may view this page. -->
+  <script src="role-gate.js" data-allow="3"></script>
+  <title>SurfinLive — Athlete</title>
+  <style>
+    :root {
+      --bg: #0b1220; --panel: #121b2e; --panel-2: #18243b; --line: #243349;
+      --text: #e6edf6; --muted: #8da0bd; --primary: #2dd4bf; --primary-ink: #042f2a;
+      --radius: 12px; --shadow: 0 6px 22px rgba(0,0,0,.35);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background:
+        radial-gradient(900px 500px at 50% -10%, #15233c, transparent),
+        var(--bg);
+      color: var(--text);
+      display: flex; align-items: center; justify-content: center; padding: 24px;
+    }
+    .card {
+      width: 100%; max-width: 460px; text-align: center;
+      background: var(--panel); border: 1px solid var(--line);
+      border-radius: var(--radius); box-shadow: var(--shadow); padding: 32px 28px;
+    }
+    .logo {
+      width: 44px; height: 44px; border-radius: 11px; margin: 0 auto 14px;
+      background: linear-gradient(135deg, var(--primary), #38bdf8);
+      display: grid; place-items: center; font-weight: 800; color: var(--primary-ink);
+    }
+    h1 { font-size: 20px; margin: 0 0 6px; }
+    .sub { color: var(--muted); font-size: 14px; }
+    .badge {
+      display: inline-block; margin-top: 18px; font-size: 12px; padding: 4px 12px;
+      border-radius: 999px; background: var(--panel-2); border: 1px solid var(--line);
+      color: var(--muted);
+    }
+    a { color: var(--primary); }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">S</div>
+    <h1>Athlete Console</h1>
+    <div class="sub">
+      Welcome, athlete. This area is reserved for your surf profile, registered
+      events, and results.
+    </div>
+    <div class="badge">Placeholder — coming soon</div>
+    <p class="sub" style="margin-top:18px;">
+      <a href="/index.html">Back to home</a> · <a href="/login.html">Sign out</a>
+    </p>
+  </div>
+</body>
+</html>

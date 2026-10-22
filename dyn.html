@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SurfinLive — Dynamic View</title>
+  <!-- theme.js must load BEFORE the stylesheet paints, or Light mode flashes dark -->
+  <script src="theme.js"></script>
+  <link rel="stylesheet" href="styles.css?v=34" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <span class="logo">🏄</span>
+      <div>
+        <h1>SurfinLive</h1>
+        <p class="tagline">Live broadcast</p>
+      </div>
+    </div>
+  </header>
+
+  <!-- Shown when the Short ID in the URL is missing or does not match a tournament. -->
+  <div class="dyn-error" id="dyn-error" hidden>
+    <div class="dyn-error-title">Tournament not found</div>
+    <div class="dyn-error-text" id="dyn-error-text"></div>
+  </div>
+
+  <!-- Shown when the URL carries no Short ID at all: ask the spectator to enter one. -->
+  <div class="dyn-search" id="dyn-search" hidden>
+    <div class="dyn-search-card">
+      <div class="dyn-search-logo">🏄</div>
+      <h2 class="dyn-search-title">SurfinLive</h2>
+      <p class="dyn-search-label">Please enter the tournament Short ID</p>
+      <form class="dyn-search-form" id="dyn-search-form" autocomplete="off">
+        <input class="dyn-search-input" id="dyn-search-input" type="text"
+               placeholder="e.g. JQJKJ1" maxlength="12" aria-label="Tournament Short ID" />
+        <button class="btn btn-primary dyn-search-btn" type="submit">Watch</button>
+      </form>
+      <div class="dyn-search-error" id="dyn-search-error" hidden>Enter a Short ID to continue.</div>
+    </div>
+  </div>
+
+  <main class="live-wrap" id="dyn-wrap" hidden>
+    <!-- Tournament name centered on top (public view convention). -->
+    <div class="dyn-tournament-title" id="dyn-tournament-label">Tournament Name</div>
+
+    <!-- Mirror of the Judge Panel / Live View scoreboard. -->
+    <div class="live-card" id="dyn-live-card">
+      <div class="live-status">
+        <span class="live-dot"></span>
+        <span class="live-tag" id="dyn-live-tag">Live</span>
+        <span class="live-meta" id="dyn-live-meta">connecting…</span>
+      </div>
+      <div class="live-select-row">
+        <label for="dyn-countdown" class="dyn-countdown-label">Time Remaining</label>
+        <span id="dyn-countdown" class="live-select live-countdown">20:00</span>
+      </div>
+      <div class="live-round" id="dyn-live-round">—</div>
+      <div class="live-show-title" id="dyn-live-show">—</div>
+      <div class="live-table-wrap">
+        <table class="live-table" id="dyn-list">
+          <thead>
+            <tr><th>#</th><th>Name</th><th>Score</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="live-card" id="dyn-detail-card">
+      <div class="live-detail-title">Running Score</div>
+      <div class="live-table-wrap">
+        <table class="live-table" id="dyn-detail-list">
+          <thead>
+            <tr><th>Color and Priority</th><th>Name</th><th>High 1st</th><th>High 2nd</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="live-card" id="dyn-shows-card">
+      <div class="live-detail-title">All Shows</div>
+      <div class="live-table-wrap">
+        <table class="live-table" id="dyn-shows-list">
+          <thead>
+            <tr><th>Round</th><th>Show</th><th>Status</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Champion announcement (shown only when the tournament has concluded) -->
+    <div class="champion-card live-view-champion" id="dyn-champion-card" hidden>
+      <div class="champion-emoji">🏆</div>
+      <h2 class="champion-head">Champion</h2>
+      <div class="champion-name" id="dyn-champion-name"></div>
+      <div class="champion-ru">Runner-up: <span id="dyn-champion-ru"></span></div>
+      <div class="champion-3rd">3rd place: <span id="dyn-champion-3rd"></span></div>
+      <div class="champion-4th">4th place: <span id="dyn-champion-4th"></span></div>
+    </div>
+  </main>
+
+  <footer class="app-footer">
+    <span id="dyn-footer-text">SurfinLive · live mirror of the Judge Panel. Scores, colors and priority update as the judge enters them.</span>
+  </footer>
+
+  <script>document.querySelectorAll('.app-footer span').forEach(function (s) { s.textContent = 'Powered by PSOI Kota Depok - ' + new Date().getFullYear(); });</script>
+
+  <script src="store.js?v=7"></script>
+  <script src="tournament.js?v=8"></script>
+  <script src="dyn.js?v=17"></script>
+</body>
+</html>

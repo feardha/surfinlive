@@ -1,0 +1,10 @@
+# Dependencies
+node_modules/
+
+# Generated/large binary assets (keep repo lean; not source)
+*.png
+bracket_*.svg
+
+# OS / editor cruft
+.DS_Store
+*.swp

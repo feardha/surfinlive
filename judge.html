@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!-- Role gate: only administrators (1) and judges (5) may view this page. -->
+  <script src="role-gate.js" data-allow="1,5"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SurfinLive — Judge Panel</title>
+  <!-- theme.js must load BEFORE the stylesheet paints, or Light mode flashes dark -->
+  <script src="theme.js"></script>
+  <link rel="stylesheet" href="styles.css?v=34" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <span class="logo">🏄</span>
+      <div>
+        <h1>SurfinLive</h1>
+        <p class="tagline">Judge Panel · look up a match by Short ID</p>
+        <br>
+      </div>
+    </div>
+    <nav class="nav">
+      <a class="nav-link" href="dashboard.html">Dashboard</a>
+      <a class="nav-link" href="index.html">Live View</a>
+      <!-- <a class="nav-link" href="dyn.html">Dynamic View</a> -->
+      <a class="nav-link active" href="judge.html">Judge Panel</a>
+      <a class="nav-link" href="settings.html">Settings</a>
+    </nav>
+  </header>
+
+  <main class="live-wrap">
+    <!-- Search gate: same card design as the Dynamic View, pinned to the top of
+         the body. Shown until a match is found, then hidden. -->
+    <div class="judge-search" id="j-search">
+      <div class="dyn-search-card">
+        <div class="dyn-search-logo">🏄</div>
+        <h2 class="dyn-search-title">SurfinLive</h2>
+        <p class="dyn-search-label">Please enter the tournament Short ID</p>
+        <form class="dyn-search-form" id="j-search-form" autocomplete="off">
+          <input class="dyn-search-input" id="j-shortid" type="text"
+                 placeholder="e.g. JQJKJ1" maxlength="12" aria-label="Tournament Short ID" />
+          <button class="btn btn-primary dyn-search-btn" type="submit">Search</button>
+        </form>
+        <div class="dyn-search-error" id="j-search-error" hidden></div>
+      </div>
+    </div>
+
+    <!-- Broadcast (hidden until a match is found) -->
+    <div id="j-broadcast" hidden>
+      <div class="live-status">
+        <span class="live-dot"></span>
+        <span class="live-tag" id="j-live-tag">Live</span>
+        <span class="live-meta" id="j-live-meta">connecting…</span>
+      </div>
+      <div class="live-select-row">
+        <label for="j-countdown" id="j-tournament-label">TOURNAMENT</label>
+        <span id="j-countdown" class="live-select live-countdown">20:00</span>
+      </div>
+      <div class="live-card" id="j-live-card">
+        <div class="live-round" id="j-live-round">—</div>
+        <div class="live-show-title" id="j-live-show">—</div>
+        <div class="live-table-wrap">
+          <table class="live-table" id="j-list">
+            <thead>
+              <tr><th>#</th><th>Name</th><th>Score</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="live-card j-drag" id="j-detail-card">
+        <div class="live-detail-title">Running Score</div>
+        <div class="live-table-wrap">
+          <table class="live-table" id="j-detail-list">
+            <thead>
+              <tr><th>Color and Priority</th><th>Name</th><th>High 1st</th><th>High 2nd</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="live-actions">
+          <button id="j-details" class="btn btn-green">Details</button>
+        </div>
+        <div class="details-panel" id="j-details-panel" hidden>
+          <div class="details-row details-head">
+            <span>Priority</span><span>Color</span><span>Name</span><span>Score</span>
+          </div>
+          <div id="j-details-body"></div>
+        </div>
+      </div>
+
+      <!-- Champion announcement (shown only when the tournament has concluded and there is no show to display) -->
+      <div class="champion-card live-view-champion" id="j-champion-card" hidden>
+        <div class="champion-emoji">🏆</div>
+        <h2 class="champion-head">Champion</h2>
+        <div class="champion-name" id="j-champion-name"></div>
+        <div class="champion-ru">Runner-up: <span id="j-champion-ru"></span></div>
+        <div class="champion-3rd">3rd place: <span id="j-champion-3rd"></span></div>
+        <div class="champion-4th">4th place: <span id="j-champion-4th"></span></div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="app-footer">
+    <span id="j-footer-text">SurfinLive · this is a simulated live view for the prototype. Scores are dummy and tick in real time.</span>
+  </footer>
+
+  <script>document.querySelectorAll('.app-footer span').forEach(function (s) { s.textContent = 'Powered by PSOI Kota Depok - ' + new Date().getFullYear(); });</script>
+
+  <script src="store.js?v=7"></script>
+  <script src="tournament.js?v=10"></script>
+  <script src="judge.js?v=20"></script>
+</body>
+</html>

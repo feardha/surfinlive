@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Role gate: only organizers (2) and admins (1) may view this page. -->
+  <script src="role-gate.js" data-allow="1,2"></script>
+  <title>SurfinLive — Dashboard</title>
+  <!-- theme.js must load BEFORE the stylesheet paints, or Light mode flashes dark -->
+  <script src="theme.js"></script>
+  <link rel="stylesheet" href="styles.css?v=35" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <span class="logo">🏄</span>
+      <div>
+        <h1>SurfinLive</h1>
+        <p class="tagline">The Dashboard · Tournament Generator (no database)</p>
+        <br>
+      </div>
+    </div>
+    <nav class="nav">
+      <a class="nav-link active" href="dashboard.html">Dashboard</a>
+      <a class="nav-link" href="index.html">Live View</a>
+      <!-- a class="nav-link" href="dyn.html">Dynamic View</a> -->
+      <a class="nav-link" href="judge.html">Judge Panel</a>
+      <a class="nav-link" href="settings.html">Settings</a>
+    </nav>
+  </header>
+
+  <main class="layout">
+    <!-- Top: tournament name + participants -->
+    <section class="panel input-panel">
+      <h2>1 · Tournament Name</h2>
+      <p class="hint">Names the event. Appears on the Live View once a live status is confirmed.</p>
+      <input id="tournament-name" class="text-input" type="text" maxlength="60" placeholder="e.g. Pipeline Pro-Am 2026" autocomplete="off" />
+
+      <h2 class="section-sep">2 · Enter participants</h2>
+      <p class="hint">One name per line (2 minimum). Click a sample to load it.</p>
+      <div class="samples">
+        <button type="button" class="chip" data-sample="8">8 surfers</button>
+        <button type="button" class="chip" data-sample="12">12 surfers</button>
+        <button type="button" class="chip" data-sample="16">16 surfers</button>
+        <button type="button" class="chip" data-sample="32">32 surfers</button>
+        <button type="button" class="chip" data-sample="64">64 surfers</button>
+      </div>
+      <textarea id="names" rows="10" placeholder="Kelly Slater&#10;Layne Beachley&#10;Gabriel Medina&#10;..."></textarea>
+      <!--div class="cps-block">
+        <label class="field-label" for="cps-dash">Contestants per show</label>
+        <span class="field-desc">Each show seats this many (or one more); top 2 advance. Final is always 4. Range 3&ndash;8.</span>
+        <span class="field-row">
+          <input class="text-input" type="number" id="cps-dash" name="cpsDash" min="3" max="8" step="1" value="4" />
+          <button type="button" class="btn btn-primary" id="cps-dash-ok">OK</button>
+        </span>
+        <p id="cps-readout" class="cps-readout" role="status" aria-live="polite"></p>
+      </div> -->
+      <div class="row">
+        <button id="generate" class="btn btn-primary">Generate bracket</button>
+        <button id="clear-input" class="btn btn-ghost">Clear</button>
+      </div>
+      <p id="input-error" class="error" hidden></p>
+    </section>
+
+    <!-- Bottom: bracket -->
+    <section class="panel bracket-panel">
+      <div class="bracket-toolbar" id="toolbar" hidden>
+        <h2>3 · Bracket</h2>
+        <div class="toolbar-actions">
+          <button id="round-randomizer" class="btn btn-primary">🎲 Redistribute </button>
+          <!-- <button id="simulate" class="btn btn-primary">🎲 Simulate (random)</button> -->
+          <button id="reset" class="btn btn-ghost">↺ Reset results</button>
+        </div>
+      </div>
+      <div class="mode-banner" id="mode-banner" hidden></div>
+      <div class="tourney-name" id="tourney-name" hidden></div>
+      <div class="short-id-wrap" id="short-id-wrap" hidden>
+        <span class="short-id-label">Short ID</span>
+        <span class="short-id" id="short-id"></span>
+        <button class="share-btn" id="share-shortid" type="button" title="Share this tournament link">🔗 Share</button>
+      </div>
+      <div id="bracket" class="bracket"></div>
+      <div id="champion" class="champion-card" hidden></div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <span>SurfinLive · tournament engine runs entirely in your browser. No data is stored.</span>
+  </footer>
+
+  <script>document.querySelectorAll('.app-footer span').forEach(function (s) { s.textContent = 'Powered by PSOI Kota Depok - ' + new Date().getFullYear(); });</script>
+
+  <!-- Confirmation modal for Start / End show actions -->
+  <div id="modal-overlay" class="modal-overlay" hidden>
+    <div class="modal-box">
+      <p id="modal-title" class="modal-title"></p>
+      <div class="modal-actions">
+        <button id="modal-yes" class="btn btn-primary">Yes</button>
+        <button id="modal-no" class="btn btn-ghost">No</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="store.js?v=7"></script>
+  <script src="settings-store.js?v=4"></script>
+  <script src="tournament.js?v=7"></script>
+  <script src="app.js?v=11"></script>
+</body>
+</html>

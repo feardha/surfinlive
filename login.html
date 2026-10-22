@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SurfinLive — Sign in</title>
+  <!-- Blocking theme init (dark is default; [data-theme=light] overrides). -->
+  <script src="theme.js"></script>
+  <style>
+    :root {
+      --bg: #0b1220; --panel: #121b2e; --panel-2: #18243b; --line: #243349;
+      --text: #e6edf6; --muted: #8da0bd; --primary: #2dd4bf; --primary-ink: #042f2a;
+      --elim: #f87171; --radius: 12px; --shadow: 0 6px 22px rgba(0,0,0,.35);
+      --input-bg: #0c1422; --overlay: rgba(4,8,16,.62);
+    }
+    [data-theme="light"] {
+      --bg: #f5f8fc; --panel: #ffffff; --panel-2: #eef3fa; --line: #d2dcea;
+      --text: #0b1220; --muted: #51607a; --primary: #0d7f74; --primary-ink: #ffffff;
+      --input-bg: #ffffff; --overlay: rgba(255,255,255,.78);
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background:
+        radial-gradient(900px 500px at 50% -10%, var(--bg-glow, #15233c), transparent),
+        var(--bg);
+      color: var(--text);
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      width: 100%; max-width: 420px;
+      background: var(--panel); border: 1px solid var(--line);
+      border-radius: var(--radius); box-shadow: var(--shadow);
+      padding: 28px 26px;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+    .logo {
+      width: 40px; height: 40px; border-radius: 10px; flex: 0 0 auto;
+      background: linear-gradient(135deg, var(--primary), #38bdf8);
+      display: grid; place-items: center; color: #042f2a; font-weight: 800; font-size: 20px;
+    }
+    h1 { font-size: 20px; margin: 0; letter-spacing: .3px; }
+    .sub { color: var(--muted); font-size: 13px; margin: 2px 0 22px 52px; }
+    label { display: block; font-size: 13px; color: var(--muted); margin: 0 0 6px 2px; }
+    input[type=email], input[type=password], input[type=text] {
+      width: 100%; padding: 11px 12px; font-size: 15px;
+      background: var(--input-bg); color: var(--text);
+      border: 1px solid var(--line); border-radius: 10px; outline: none;
+    }
+    input:focus { border-color: var(--primary); }
+    .field { margin-bottom: 14px; }
+    button {
+      font: inherit; cursor: pointer; border: 0; border-radius: 10px;
+      padding: 12px 14px; font-weight: 600; width: 100%;
+    }
+    .btn-primary { background: var(--primary); color: var(--primary-ink); }
+    .btn-primary:hover { filter: brightness(1.05); }
+    .btn-ghost {
+      background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+    }
+    .btn-ghost:disabled { opacity: .5; cursor: not-allowed; }
+    .divider {
+      display: flex; align-items: center; gap: 10px; color: var(--muted);
+      font-size: 12px; margin: 18px 0;
+    }
+    .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+    .msg { font-size: 13px; margin-top: 14px; min-height: 18px; }
+    .msg.err { color: var(--elim); }
+    .msg.ok { color: var(--primary); }
+    .google-mark { width: 18px; height: 18px; }
+    /* Profile (post-login) */
+    .profile { display: none; text-align: center; }
+    .avatar {
+      width: 64px; height: 64px; border-radius: 50%; margin: 0 auto 12px;
+      background: linear-gradient(135deg, var(--primary), #38bdf8);
+      display: grid; place-items: center; color: #042f2a; font-weight: 800; font-size: 26px;
+    }
+    .pname { font-size: 18px; font-weight: 700; }
+    .pemail { color: var(--muted); font-size: 13px; margin: 2px 0 4px; }
+    .prole { display: inline-block; font-size: 12px; padding: 3px 10px; border-radius: 999px;
+             background: var(--panel-2); border: 1px solid var(--line); color: var(--muted); }
+    .meta { color: var(--muted); font-size: 12px; margin-top: 14px; line-height: 1.5; }
+    .topbar { position: fixed; top: 14px; right: 16px; }
+    .toggle {
+      background: var(--panel); color: var(--muted); border: 1px solid var(--line);
+      border-radius: 999px; padding: 6px 12px; font-size: 12px; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar"><button class="toggle" id="themeToggle">Light / Dark</button></div>
+
+  <!-- Login form -->
+  <div class="card" id="loginCard">
+    <div class="brand">
+      <div class="logo">S</div>
+      <div>
+        <h1>SurfinLive</h1>
+      </div>
+    </div>
+    <div class="sub">Sign in to manage your surf events</div>
+
+    <form id="credForm" autocomplete="off">
+      <div class="field">
+        <label for="email">Email</label>
+        <input type="email" id="email" placeholder="you@surfin.live" required />
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input type="password" id="password" placeholder="••••••••" required />
+      </div>
+      <button class="btn-primary" type="submit" id="signinBtn">Sign in</button>
+    </form>
+
+    <div class="divider">or</div>
+
+    <button class="btn-ghost" id="googleBtn" type="button" disabled>
+      <svg class="google-mark" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.4 29.3 35 24 35c-6.1 0-11-4.9-11-11s4.9-11 11-11c2.8 0 5.4 1.1 7.3 2.8l5.7-5.7C33.5 6.5 29 4.5 24 4.5 12.4 4.5 3 13.9 3 25.5S12.4 46.5 24 46.5 45 37.1 45 25.5c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c2.8 0 5.4 1.1 7.3 2.8l5.7-5.7C33.5 6.5 29 4.5 24 4.5 16.3 4.5 9.7 9 6.3 14.7z"/><path fill="#4CAF50" d="M24 46.5c5 0 9.6-1.9 13-5l-6-5.1C29.2 38 26.7 39 24 39c-5.3 0-9.7-2.6-11.3-7l-6.5 5C9.5 41.6 16.2 46.5 24 46.5z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4 5.5l6 5.1c-.4.4 6.9-5 6.9-15.1 0-1.2-.1-2.3-.3-3z"/></svg>
+      <span id="googleLabel">Sign in with Google</span>
+    </button>
+
+    <!-- Dev-only mock Google (shown when the API runs in SL_DEV_MOCK mode) -->
+    <div id="devMock" style="display:none; margin-top:12px;">
+      <div class="field">
+        <label for="devEmail">Google email (dev mock)</label>
+        <input type="text" id="devEmail" placeholder="someone@gmail.com" />
+      </div>
+      <button class="btn-ghost" id="devMockBtn" type="button">Continue with mock Google</button>
+    </div>
+
+    <div class="msg" id="msg"></div>
+  </div>
+
+  <!-- Profile (shown after login) -->
+  <div class="card profile" id="profileCard">
+    <div class="avatar" id="avatar">?</div>
+    <div class="pname" id="pname">—</div>
+    <div class="pemail" id="pemail">—</div>
+    <div class="prole" id="prole">—</div>
+    <div class="meta">
+      Session expires: <span id="pexpiry">—</span><br />
+      <code id="ptoken" style="font-size:11px;">—</code>
+    </div>
+    <div style="margin-top:18px; display:flex; gap:10px;">
+      <button class="btn-ghost" id="goDashboard" type="button">Open Dashboard</button>
+      <button class="btn-primary" id="logoutBtn" type="button">Sign out</button>
+    </div>
+  </div>
+
+  <script src="login.js"></script>
+</body>
+</html>
