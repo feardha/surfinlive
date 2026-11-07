@@ -1,0 +1,6 @@
+{
+  "name": "SurfinLive",
+  "description": "Browser-based surf tournament generator, live broadcast streaming, and judging panel for PSOI Kota Depok.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

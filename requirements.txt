@@ -1,0 +1,9 @@
+# SurfinLive API server dependencies
+Flask>=3.0,<4.0
+flasgger>=0.9.7
+Werkzeug>=3.0,<4.0
+python-dotenv>=1.0
+
+# dev / test
+pytest>=8.0
+pytest-flask>=1.3

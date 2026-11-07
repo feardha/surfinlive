@@ -1,0 +1,653 @@
+/* ===================================================================
+   THEME TOKENS
+   :root            = DARK theme (the default / historical look).
+   [data-theme=light] = LIGHT overrides (black text over white).
+   theme.js sets data-theme="light" on <html>; dark removes the attribute.
+   Every themed color MUST come from a token below — do not hardcode hex
+   values in rules, or Light mode will keep dark patches.
+   =================================================================== */
+:root {
+  --bg: #0b1220;
+  --panel: #121b2e;
+  --panel-2: #18243b;
+  --line: #243349;
+  --text: #e6edf6;
+  --muted: #8da0bd;
+  --primary: #2dd4bf;
+  --primary-ink: #042f2a;
+  --advance: #34d399;
+  --elim: #f87171;
+  --champ: #fbbf24;
+  --bye: #475569;
+  /* surfaces that used to be hardcoded */
+  --bg-glow: #15233c;          /* radial glow at the top of the page */
+  --header-bg: rgba(10,16,28,.6);
+  --input-bg: #0c1422;         /* textarea + live select box */
+  --entry-bg: #0e1726;         /* contestant row */
+  --bye-stripe: #121d30;       /* BYE hatch stripe */
+  --overlay: rgba(4, 8, 16, .62);
+  --green: #1faa59;            /* Start button */
+  --green-ink: #fff;
+  --live-ink: #fff;            /* text on the pulsing LIVE pill */
+  /* Live View score numerals (main Score + High 1st/2nd). Teal on dark. */
+  --score-ink: var(--primary);
+  /* translucent accent fills (tuned per theme) */
+  --picked-fill: rgba(52,211,153,.12);
+  --champ-fill: rgba(251,191,36,.14);
+  --champ-card-fill: linear-gradient(135deg, rgba(251,191,36,.16), rgba(45,212,191,.10));
+  --radius: 12px;
+  --shadow: 0 6px 22px rgba(0,0,0,.35);
+}
+
+/* ---------- LIGHT THEME: black text over white ---------- */
+[data-theme="light"] {
+  --bg: #f5f8fc;
+  --panel: #ffffff;
+  --panel-2: #eef3fa;
+  --line: #d2dcea;
+  --text: #0b1220;             /* near-black body text */
+  --muted: #51607a;            /* ~5.4:1 on white — passes AA */
+  --primary: #0d7f74;          /* darkened teal so white ink passes AA */
+  --primary-ink: #ffffff;
+  --advance: #047857;          /* green readable ON white */
+  --elim: #c62828;
+  --champ: #8a5a00;            /* amber darkened for contrast on white */
+  --bye: #556173;              /* darkened so the "closed" tag passes AA */
+  --bg-glow: #e3ecf9;
+  --header-bg: rgba(255,255,255,.78);
+  --input-bg: #ffffff;
+  --entry-bg: #f7fafd;
+  --bye-stripe: #e7edf6;
+  --overlay: rgba(15, 23, 42, .38);
+  --green: #047857;
+  --green-ink: #ffffff;
+  --live-ink: #ffffff;
+  --score-ink: var(--text);    /* black scores on white — owner request */
+  --picked-fill: rgba(4,120,87,.10);
+  --champ-fill: rgba(138,90,0,.12);
+  --champ-card-fill: linear-gradient(135deg, rgba(138,90,0,.10), rgba(13,127,116,.08));
+  --shadow: 0 6px 18px rgba(15, 34, 68, .10);
+}
+/* Tournament name in the bracket card: teal in Light mode, unchanged (--text) in Dark. */
+[data-theme="light"] .tourney-name { color: var(--primary); }
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: radial-gradient(1200px 600px at 80% -10%, var(--bg-glow) 0%, var(--bg) 60%);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+.app-header {
+  margin-top: 28px;
+  padding: 18px 28px;
+  border-bottom: 1px solid var(--line);
+  background: var(--header-bg);
+  backdrop-filter: blur(6px);
+}
+.brand { display: flex; align-items: center; gap: 14px; }
+.logo { font-size: 34px; }
+.app-header h1 { margin: 0; font-size: 22px; letter-spacing: .5px; }
+.tagline { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+
+.layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 22px;
+  padding: 22px 28px;
+  align-items: start;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px;
+  box-shadow: var(--shadow);
+}
+.panel h2 { margin: 0 0 10px; font-size: 16px; }
+.hint { color: var(--muted); font-size: 12.5px; margin: 0 0 10px; }
+
+.samples { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.chip {
+  background: var(--panel-2); color: var(--text);
+  border: 1px solid var(--line); border-radius: 999px;
+  padding: 5px 12px; font-size: 12.5px; cursor: pointer;
+}
+.chip:hover { border-color: var(--primary); }
+
+textarea {
+  width: 100%; resize: vertical;
+  background: var(--input-bg); color: var(--text);
+  border: 1px solid var(--line); border-radius: 10px;
+  padding: 10px; font-size: 14px; line-height: 1.5;
+  font-family: inherit;
+}
+textarea:focus { outline: 2px solid var(--primary); border-color: transparent; }
+
+/* Tournament Name input (Dashboard step 1) — mirrors the textarea look */
+.text-input {
+  width: 100%;
+  background: var(--input-bg); color: var(--text);
+  border: 1px solid var(--line); border-radius: 10px;
+  padding: 10px; font-size: 14px; line-height: 1.5;
+  font-family: inherit;
+}
+.text-input:focus { outline: 2px solid var(--primary); border-color: transparent; }
+/* hide the native number-input stepper arrows (we use the OK button instead) */
+.text-input { -moz-appearance: textfield; appearance: textfield; -webkit-appearance: none; }
+.text-input::-webkit-outer-spin-button,
+.text-input::-webkit-inner-spin-button { -webkit-appearance: none; appearance: none; margin: 0; }
+/* Bracket setting: number input + OK button on one line */
+.field-row { display: flex; align-items: stretch; gap: 10px; max-width: 280px; }
+.field-row .text-input { width: 110px; flex: 0 0 auto; }
+.field-row .btn { flex: 1 1 auto; }
+.section-sep { margin-top: 18px !important; }
+
+.row { display: flex; gap: 10px; margin-top: 12px; }
+.btn {
+  border: 1px solid var(--line); border-radius: 10px;
+  padding: 9px 14px; font-size: 14px; cursor: pointer;
+  background: var(--panel-2); color: var(--text);
+}
+.btn:hover { border-color: var(--primary); }
+.btn-primary { background: var(--primary); color: var(--primary-ink); border-color: transparent; font-weight: 600; }
+.btn-primary:hover { filter: brightness(1.05); }
+.btn-green { background: var(--green); color: var(--green-ink); border-color: transparent; font-weight: 600; }
+.btn-green:hover { filter: brightness(1.05); }
+.btn-danger { background: var(--elim); color: var(--live-ink); border-color: transparent; font-weight: 600; }
+.btn-danger:hover { filter: brightness(1.05); }
+/* Compact square button for dense table rows (the Details panel "+"). */
+.btn-sm { padding: 4px 10px; font-size: 13px; line-height: 1.2; border-radius: 8px; }
+.btn-ghost { background: transparent; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.error { color: var(--elim); font-size: 13px; margin-top: 10px; }
+
+/* Confirmation modal (Start / End show) */
+.modal-overlay[hidden] { display: none; }
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--overlay); backdrop-filter: blur(2px);
+}
+.modal-box {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 22px 24px; min-width: 280px; max-width: 90vw;
+  text-align: center;
+}
+.modal-title { margin: 0 0 18px; font-size: 16px; font-weight: 600; color: var(--text); }
+.modal-actions { display: flex; gap: 12px; justify-content: center; }
+.modal-actions .btn { min-width: 84px; }
+
+/* Score-entry <dialog> (Judge Panel Details "+"). A native <dialog> keeps the
+   browser's default white/black chrome unless it is themed explicitly, which is
+   why it looked out of place on the dark panel. Tokens are used throughout so
+   it follows Light/Dark automatically. */
+dialog {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px 22px;
+  min-width: 260px;
+  max-width: 90vw;
+}
+dialog::backdrop { background: var(--overlay); backdrop-filter: blur(2px); }
+dialog p { margin: 0 0 12px; font-size: 14px; color: var(--text); }
+dialog input[type="text"] {
+  width: 100%; padding: 10px 12px; font-size: 15px;
+  background: var(--input-bg); color: var(--text);
+  border: 1px solid var(--line); border-radius: 10px; outline: none;
+  font-variant-numeric: tabular-nums;
+}
+dialog input[type="text"]:focus { border-color: var(--primary); }
+.dialog-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+.dialog-actions .btn { min-width: 84px; }
+
+.bracket-toolbar { display: flex; justify-content: space-between; align-items: center; }
+.toolbar-actions { display: flex; gap: 8px; }
+.short-id-wrap { display: flex; align-items: baseline; gap: 6px; margin: 8px 0 18px; }
+.short-id-label { font-size: 10px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); }
+.short-id {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 14px; font-weight: 700; letter-spacing: 2px;
+  color: var(--primary-ink); background: var(--primary);
+  padding: 2px 8px; border-radius: 6px;
+}
+.share-btn {
+  margin-left: 4px; padding: 4px 10px; border-radius: 999px; cursor: pointer;
+  font-size: 12px; font-weight: 600;
+  border: 1px solid var(--line); background: var(--panel-2); color: var(--text);
+}
+.share-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+.mode-banner {
+  margin: 6px 0 14px; padding: 8px 12px; border-radius: 8px;
+  font-size: 13px; background: var(--panel-2); border: 1px solid var(--line); color: var(--muted);
+}
+.mode-banner.scored { border-color: var(--advance); color: var(--advance); }
+.tourney-name {
+  text-align: center; text-transform: uppercase;
+  font-size: 20px; font-weight: 700; letter-spacing: .5px;
+  color: var(--text); margin: 4px 0 14px;
+}
+
+/* Bracket layout */
+.bracket { display: flex; gap: 18px; overflow-x: auto; padding-bottom: 8px; }
+.round-col { flex: 0 0 220px; display: flex; flex-direction: column; }
+.round-title {
+  text-align: center; font-size: 13px; font-weight: 600; letter-spacing: .4px;
+  color: var(--muted); text-transform: uppercase; margin-bottom: 10px;
+}
+.round-title.is-final { color: var(--champ); }
+.round-title .count { display: block; font-size: 11px; color: var(--muted); font-weight: 400; }
+
+.shows { display: flex; flex-direction: column; gap: 14px; flex: 1; }
+.show {
+  background: var(--panel-2); border: 1px solid var(--line);
+  border-radius: 10px; padding: 10px;
+}
+.show-actions { display: flex; gap: 8px; margin: 8px 0 4px; }
+.show-actions .btn { font-size: 12px; padding: 6px 12px; }
+.show-label { font-size: 11px; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: .5px; }
+.show.locked { opacity: .6; }
+
+.contestant {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 7px 9px; margin: 5px 0; border-radius: 8px;
+  background: var(--entry-bg); border: 1px solid var(--line);
+  cursor: default; font-size: 13.5px;
+}
+.contestant.clickable { cursor: pointer; }
+.contestant.clickable:hover { border-color: var(--primary); }
+.contestant.picked { border-color: var(--advance); background: var(--picked-fill); }
+.contestant.advanced { border-color: var(--advance); }
+.contestant.eliminated { opacity: .5; text-decoration: line-through; }
+.contestant.champion { border-color: var(--champ); background: var(--champ-fill); font-weight: 700; }
+.contestant.runnerup { border-color: var(--champ); }
+.contestant.bye { color: var(--bye); background: repeating-linear-gradient(45deg,var(--entry-bg),var(--entry-bg) 6px,var(--bye-stripe) 6px,var(--bye-stripe) 12px); }
+
+.c-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.c-score { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12px; }
+.c-badge { font-size: 10px; color: var(--champ); margin-left: 6px; }
+
+.round-actions { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.round-actions .btn { width: 100%; }
+.unlock-note { font-size: 11.5px; color: var(--muted); text-align: center; }
+.pick-counter { font-size: 11.5px; color: var(--muted); text-align: center; }
+
+.champion-card {
+  margin-top: 18px; padding: 16px; border-radius: 12px; text-align: center;
+  background: var(--champ-card-fill);
+  border: 1px solid var(--champ);
+}
+.champion-card h3 { margin: 0 0 6px; font-size: 14px; color: var(--muted); letter-spacing: .5px; text-transform: uppercase; }
+.champion-card .crown { font-size: 28px; }
+.champion-card .who { font-size: 22px; font-weight: 800; color: var(--champ); }
+.champion-card .ru { margin-top: 6px; color: var(--muted); font-size: 13px; }
+.champion-card .third, .champion-card .fourth { margin-top: 6px; color: var(--muted); font-size: 13px; }
+.champion-card .third-name, .champion-card .fourth-name { color: var(--text); font-weight: 600; }
+
+/* Live View champion announcement (only shown when tournament concluded) */
+.live-view-champion { max-width: 420px; margin: 26px auto 0; padding: 30px 24px; }
+.live-view-champion .champion-emoji { font-size: 54px; line-height: 1; margin-bottom: 6px; }
+.live-view-champion .champion-head { margin: 0 0 10px; font-size: 14px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; }
+.live-view-champion .champion-name { font-size: 30px; font-weight: 800; color: var(--champ); margin-bottom: 10px; }
+.live-view-champion .champion-ru { font-size: 14px; color: var(--muted); }
+.live-view-champion .champion-ru span { color: var(--text); font-weight: 600; }
+/* 3rd / 4th place: same size as the runner-up name */
+.live-view-champion .champion-3rd, .live-view-champion .champion-4th { font-size: 14px; color: var(--muted); margin-top: 8px; }
+.live-view-champion .champion-3rd span, .live-view-champion .champion-4th span { color: var(--text); font-weight: 600; }
+
+.app-footer { padding: 14px 28px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--line); text-align: center; }
+
+/* --- Tournament View package ------------------------------------------
+   One "Tournament View" = input panel + bracket panel + modal overlay,
+   wrapped in a single bordered package with its own header and footer.
+   Generated one per "Generate New Tournament" press; the generate button
+   always sits under the latest view, aligned left. */
+.tournament-views { display: grid; gap: 22px; }
+.tournament-view {
+  display: grid;
+  gap: 18px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px;
+  box-shadow: var(--shadow);
+}
+.tournament-view-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding-bottom: 12px; border-bottom: 1px solid var(--line);
+}
+.tournament-view-title { margin: 0; font-size: 16px; }
+.tournament-view-meta {
+  font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums;
+  background: var(--panel-2); border: 1px solid var(--line);
+  border-radius: 999px; padding: 4px 10px;
+}
+.tournament-view-meta[data-meta="shortId"]:empty { display: none; }
+.tournament-view-foot {
+  display: flex; align-items: center; gap: 12px;
+  padding-top: 12px; border-top: 1px solid var(--line);
+}
+.tournament-view-foot .delete-tournament { margin-left: auto; }
+.tournament-view-status { font-size: 12px; color: var(--muted); }
+/* Generate button: always under the latest view, aligned left. */
+.generate-new-tournament {
+  justify-self: start;
+  padding: 11px 18px;
+  font-size: 15px;
+}
+
+/* Top navigation */
+.nav { display: flex; gap: 6px; margin-left: auto; }
+.nav-link {
+  padding: 7px 14px; border-radius: 999px; font-size: 13px; text-decoration: none;
+  color: var(--muted); border: 1px solid var(--line); background: var(--panel-2);
+}
+.nav-link:hover { border-color: var(--primary); color: var(--text); }
+.nav-link.active { background: var(--primary); color: var(--primary-ink); border-color: transparent; font-weight: 600; }
+
+/* Live View */
+.live-wrap { max-width: 720px; margin: 0 auto; padding: 22px 28px; }
+.live-status { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.live-dot {
+  width: 10px; height: 10px; border-radius: 50%; background: var(--elim);
+  box-shadow: 0 0 0 0 rgba(248,113,113,.6); animation: livePulse 1.4s infinite;
+}
+@keyframes livePulse {
+  0%   { box-shadow: 0 0 0 0 rgba(248,113,113,.6); }
+  70%  { box-shadow: 0 0 0 10px rgba(248,113,113,0); }
+  100% { box-shadow: 0 0 0 0 rgba(248,113,113,0); }
+}
+.live-tag { font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: var(--elim); font-weight: 700; }
+.live-tag.frozen { color: var(--muted); background: transparent; animation: none; }
+.live-meta { font-size: 12px; color: var(--muted); }
+.live-card {
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 18px; box-shadow: var(--shadow); max-width: 720px; margin: 0 auto;
+}
+/* Dynamic (public) View: status + surfers info level with the countdown. */
+.live-status-row { display: flex; align-items: center; gap: 12px; margin: 4px 0 16px; }
+.live-status-row .live-status { margin-bottom: 0; }
+.live-status-row .live-countdown { margin-left: auto; }
+.dyn-tournament-title {
+  text-align: center; font-size: 22px; font-weight: 800; color: var(--text);
+  text-transform: uppercase; letter-spacing: .5px; margin: 4px 0 18px;
+}
+
+/* "Tournament not found" error (no match for the resolved Short ID) */
+.dyn-error { max-width: 720px; margin: 40px auto; padding: 0 28px; text-align: center; }
+.dyn-error-title { font-size: 18px; font-weight: 700; color: var(--elim); margin-bottom: 8px; }
+.dyn-error-text { font-size: 14px; color: var(--muted); }
+
+/* Search gate shown when the URL carries no Short ID at all */
+.dyn-search { display: flex; justify-content: center; align-items: flex-start; min-height: 60vh; padding-top: 8vh; }
+/* The `hidden` attribute must win over `display: flex` above, otherwise the gate
+   stays on screen after a valid Short ID is resolved (loadInitial -> hideSearchGate).
+   Matches the .modal-overlay[hidden] convention used elsewhere in this stylesheet. */
+.dyn-search[hidden] { display: none; }
+.dyn-search-card {
+  width: 100%; max-width: 420px; background: var(--panel); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: var(--shadow); padding: 34px 28px; text-align: center;
+}
+.dyn-search-logo { font-size: 40px; line-height: 1; margin-bottom: 6px; }
+.dyn-search-title { margin: 0 0 4px; font-size: 24px; font-weight: 800; color: var(--text); letter-spacing: .5px; }
+.dyn-search-label { margin: 0 0 20px; font-size: 14px; color: var(--muted); }
+.dyn-search-form { display: flex; gap: 8px; }
+.dyn-search-input {
+  flex: 1; min-width: 0; padding: 10px 14px; font-size: 15px; letter-spacing: 1px; text-transform: uppercase;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); color: var(--text);
+}
+.dyn-search-input:focus { outline: none; border-color: var(--primary); }
+.dyn-search-btn { flex: 0 0 auto; }
+.dyn-search-error { margin-top: 12px; font-size: 13px; color: var(--elim); }
+/* Judge Panel search gate: same card, pinned to the top of the body with padding */
+.judge-search { padding: 24px 28px 8px; }
+.judge-search .dyn-search-card { margin: 0 auto; }
+/* One line of breathing room between the show card and the running-score card. */
+#dyn-detail-card { margin-top: 28px; }
+#j-detail-card { margin-top: 28px; }
+#detail-card { margin-top: 28px; }
+/* Running Score rows reorder by dragging the WHOLE row (self-contained pointer
+   drag in judge.js — no external library). */
+#j-detail-list { cursor: grab; touch-action: none; }
+#j-detail-list.rs-dragging-active { cursor: grabbing; }
+.rs-row { transition: background-color .12s ease; }
+.rs-row.rs-dragging { opacity: .35; }
+.rs-row:hover { background: var(--entry-bg); }
+
+/* Highlight the slot the row will land in if released now. */
+.rs-row {
+  transition: background-color .12s ease, box-shadow .12s ease;
+}
+.rs-row.rs-drop-target {
+  background: rgba(47,125,225,.18);
+  /* shadow under the slot so it reads as the place the dragged row will drop into */
+  box-shadow: 0 8px 18px rgba(47,125,225,.45), inset 0 3px 0 0 var(--accent, #2f7de1);
+}
+
+/* Running Score "Details" expansion (toggled by #j-details). Reuses the same
+   color tokens as the running-score rows. */
+.details-panel {
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  padding: 10px 12px;
+  /* The score table is wide (10 slots). The WHOLE table scrolls together, so no
+     row can ever drift out of alignment with another one. */
+  overflow-x: auto;
+}
+.details-row {
+  display: grid;
+  /* Action | Name | score slot 1..10.
+     EVERY track is a fixed width. Each row is its own grid, so a flexible track
+     would be sized per-row from that row's own content — a short name would pull
+     the score columns left and break alignment with the other rows. Fixed tracks
+     make Action, Name and Scores completely independent of each other. */
+  grid-template-columns: 52px 150px repeat(10, 44px);
+  align-items: center;
+  gap: 6px;
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+  /* Keep every track at its real size so the panel scrolls instead of squashing
+     the columns into each other. */
+  min-width: max-content;
+}
+.details-row:last-child { border-bottom: none; }
+/* Every header label centres over its column, so it lines up with the value
+   beneath it. */
+.details-head {
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: .4px;
+  color: var(--muted);
+}
+.details-head span { text-align: center; }
+.details-head span:nth-child(2) { text-align: left; }   /* Name reads left-aligned */
+/* The "+" button, tinted with the contestant's colour. Background and text
+   colour are set inline from judge.js (the colour lives on the contestant). */
+.details-action-btn {
+  margin: 0;
+  width: 30px; height: 26px;
+  padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 700; line-height: 1;
+  border: 1px solid transparent;
+  border-radius: 7px;
+}
+.details-name { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* One cell per score slot. Centred in a fixed-width cell so the gap between any
+   two scores is identical regardless of how many digits they have. */
+.details-score {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--score-ink);
+  white-space: nowrap;
+}
+.details-score.is-empty { opacity: .28; }
+.details-action { display: flex; align-items: center; justify-content: center; }
+.details-action .btn { margin: 0; }
+/* Header labels must not wrap; they now sit in five columns too. */
+.details-head span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.btn.active { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(47,125,225,.25) inset; }
+/* Floating clone that follows the cursor */
+.rs-ghost {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: .95;
+  background: var(--panel);
+  border: 1px solid var(--primary);
+  border-radius: 8px;
+  box-shadow: 0 14px 34px rgba(0,0,0,.5);
+  will-change: transform;
+}
+.rs-ghost td {
+  padding: 9px 12px;
+  font-size: 15px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.rs-ghost .live-flag { width: 30px; text-align: center; }
+.rs-ghost .live-score { text-align: right; }
+.live-round { font-size: 24px; font-weight: 800; color: var(--text); text-transform: uppercase; letter-spacing: .5px; line-height: 1.1; }
+.live-show-title { font-size: 14px; font-weight: 600; color: var(--muted); margin: 4px 0 14px; }
+.live-detail-title { font-size: 14px; font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
+.live-flag { width: 30px; text-align: center; }
+.flag-swatch { display: inline-block; width: 16px; height: 16px; border-radius: 4px; border: 1px solid var(--line); vertical-align: middle; }
+.priority-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 7px; border-radius: 7px; border: 1px solid var(--line); font-size: 13px; font-weight: 700; line-height: 1; }
+.live-table-wrap { margin-top: 4px; overflow-x: auto; }
+.live-table {
+  width: 100%; border-collapse: collapse; font-size: 15px;
+}
+.live-table th {
+  text-align: left; padding: 8px 12px; font-size: 11px; letter-spacing: .6px;
+  text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line);
+}
+.live-table th:nth-child(1) { width: 56px; }
+.live-table th:nth-child(3) { text-align: right; width: 110px; }
+.live-table th:nth-child(4) { text-align: right; width: 110px; }
+.live-table td {
+  padding: 9px 12px; border-bottom: 1px solid var(--line);
+  background: var(--panel-2);
+}
+.live-table tr:last-child td { border-bottom: none; }
+.live-table td:nth-child(3),
+.live-table td:nth-child(4) { text-align: right; font-variant-numeric: tabular-nums; }
+.live-num { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 13px; }
+.live-name { font-size: 15px; }
+.live-score { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; color: var(--score-ink); }
+.live-actions { margin-top: 16px; display: flex; gap: 10px; justify-content: flex-end; }
+
+/* Show status tags (Dashboard) */
+.show-label { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 11px; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: .5px; }
+.show-tag {
+  display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 10px;
+  letter-spacing: .6px; text-transform: uppercase; border: 1px solid var(--line);
+}
+.show-tag.tag-open { color: var(--advance); border-color: var(--advance); }
+.show-tag.tag-active { color: var(--advance); border-color: var(--advance); }
+.show-tag.tag-ended { color: var(--muted); border-color: var(--line); }
+.show-tag.tag-closed { color: var(--bye); border-color: var(--bye); opacity: .8; }
+.show-tag.tag-live {
+  color: var(--live-ink); background: var(--elim); border-color: transparent; font-weight: 700;
+  animation: liveTagPulse 1.4s infinite;
+}
+@keyframes liveTagPulse { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
+
+/* Dynamic View — All Shows card */
+#dyn-shows-card { margin-top: 28px; }
+.dyn-show-row { cursor: pointer; }
+.dyn-show-row:hover td { background: var(--panel); }
+.dyn-show-row.is-open td { background: var(--panel); }
+.dyn-show-drawer td { background: var(--panel-2); padding: 0 12px 12px; }
+.dyn-show-contestants { margin-top: 10px; }
+.dyn-show-contestants .live-table th { border-top: 1px solid var(--line); }
+.dyn-advance td { background: var(--picked-fill) !important; }
+.dyn-advance .live-name { color: var(--advance); font-weight: 700; }
+.dyn-status-dash { color: var(--muted); }
+.dyn-advance-badge {
+  display: inline-block; font-size: 10px; letter-spacing: .4px;
+  color: var(--advance); border: 1px solid var(--advance); border-radius: 999px; padding: 0 7px;
+  text-transform: uppercase; vertical-align: middle;
+}
+.dyn-show-tag {
+  display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 10px;
+  letter-spacing: .6px; text-transform: uppercase; border: 1px solid var(--line); font-weight: 700;
+}
+.dyn-show-tag.tag-open { color: var(--advance); border-color: var(--advance); }
+.dyn-show-tag.tag-ended { color: var(--muted); border-color: var(--line); }
+.dyn-show-ended { color: var(--muted); }
+.dyn-show-tag.tag-live {
+  color: var(--live-ink); background: var(--elim); border-color: transparent;
+  animation: liveTagPulse 1.4s infinite;
+}
+
+/* Live View tournament selector */
+.live-select-row { display: flex; align-items: center; gap: 10px; margin: 4px 0 16px; }
+.live-select-row label { font-size: 16px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+.live-select {
+  flex: 1; background: var(--input-bg); color: var(--text); border: 1px solid var(--line);
+  border-radius: 8px; padding: 8px 10px; font-size: 13px; font-family: inherit;
+}
+.live-select:focus { outline: 2px solid var(--primary); border-color: transparent; }
+.live-select:disabled { opacity: .6; }
+.live-countdown { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 17px; letter-spacing: 1px; flex: 0 0 auto; margin-left: auto; text-align: right; }
+
+/* ===================== Settings page ===================== */
+.settings-wrap { max-width: 720px; margin: 0 auto; padding: 22px 28px; }
+.settings-panel + .settings-panel { margin-top: 18px; }
+
+/* Theme radio group — the whole card is the click target */
+.radio-group { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+.radio-option {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 12px 14px; border-radius: 10px; cursor: pointer;
+  background: var(--panel-2); border: 1px solid var(--line);
+}
+.radio-option:hover { border-color: var(--primary); }
+/* Selected state is driven by :has() on the checked input, with a
+   .is-selected fallback class applied by settings.js for older engines. */
+.radio-option:has(input:checked),
+.radio-option.is-selected { border-color: var(--primary); background: var(--picked-fill); }
+.radio-option input[type="radio"] {
+  margin: 2px 0 0; width: 17px; height: 17px; flex: 0 0 auto;
+  accent-color: var(--primary); cursor: pointer;
+}
+.radio-option:focus-within { outline: 2px solid var(--primary); outline-offset: 2px; }
+.radio-text { display: flex; flex-direction: column; gap: 2px; }
+.radio-label { font-size: 14px; font-weight: 600; color: var(--text); }
+.radio-desc { font-size: 12.5px; color: var(--muted); }
+
+/* Small live preview of the two palettes */
+.theme-swatches { display: flex; gap: 8px; margin-top: 14px; }
+.swatch {
+  flex: 1; border-radius: 8px; border: 1px solid var(--line);
+  padding: 10px; font-size: 11.5px; text-align: center;
+}
+.swatch-dark  { background: #121b2e; color: #e6edf6; }
+.swatch-light { background: #ffffff; color: #0b1220; }
+
+.settings-saved { font-size: 12.5px; color: var(--advance); margin: 12px 0 0; min-height: 16px; }
+
+/* Dashboard "Contestants per show" control */
+.cps-block {
+  margin: 14px 0 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--line, #243149);
+  border-radius: 10px;
+  background: rgba(127, 168, 255, 0.06);
+}
+.cps-block .field-label { display: block; margin-bottom: 2px; }
+.cps-block .field-desc { display: block; margin-bottom: 10px; }
+.cps-readout { font-size: 12.5px; color: var(--advance, #6ee7a8); margin: 10px 0 0; min-height: 16px; }

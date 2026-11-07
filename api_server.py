@@ -45,11 +45,12 @@ Swagger UI (live, auto-generated from each route's YAML docstring):
   it shows up in /apidocs automatically — no central registry to edit.
 """
 import datetime
-import hashlib
 import json
 import os
 import secrets
 import sqlite3
+
+from werkzeug.security import generate_password_hash, check_password_hash
 
 from flask import (
     Flask, Blueprint, request, jsonify, make_response,
@@ -58,7 +59,13 @@ from flask import (
 from flasgger import Swagger
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-DB = os.path.join(ROOT, "Event.db")
+try:
+    from dotenv import load_dotenv
+    load_dotenv(os.path.join(ROOT, ".env"))
+except ImportError:
+    pass
+
+DB = os.environ.get("SL_DB_PATH", os.path.join(ROOT, "Event.db"))
 PORT = int(os.environ.get("SL_API_PORT", "5000"))
 SESSION_TTL_SECONDS = int(os.environ.get("SL_SESSION_TTL", str(60 * 60)))
 GOOGLE_TOKENINFO = "https://oauth2.googleapis.com/tokeninfo"
@@ -157,7 +164,16 @@ def _login_credential(email, password):
         stored = row["pw_hash"] or ""
         if not stored:
             return None, "no_password_set"
-        if hashlib.sha256(password.encode("utf-8")).hexdigest() != stored:
+        # Support both legacy sha256 hashes (auto-upgrade on next success) and
+        # werkzeug (bcrypt/scrypt/pbkdf2) hashes.
+        ok = False
+        if stored.startswith(("pbkdf2:", "scrypt:", "argon2:", "bcrypt:")):
+            ok = check_password_hash(stored, password)
+        else:
+            # legacy sha256 fallback
+            import hashlib
+            ok = (hashlib.sha256(password.encode("utf-8")).hexdigest() == stored)
+        if not ok:
             return None, "invalid_credentials"
         token = _issue_session(conn, row["user_id"])
         return _public_user(row), token
@@ -755,7 +771,7 @@ def create_user():
             return _err("email_taken", 400)
 
         user_id = _gen_user_id(conn)
-        pw_hash = hashlib.sha256(password.encode("utf-8")).hexdigest()
+        pw_hash = generate_password_hash(password, method="scrypt")
         now = _now_iso()
 
         license_key = None

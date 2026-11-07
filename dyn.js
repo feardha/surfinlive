@@ -431,6 +431,31 @@
     }
     var match = window.SurfinStore.getByShortId(sid);
     if (!match) {
+      if (window.SurfinStore.getByShortIdAsync) {
+        window.SurfinStore.getByShortIdAsync(sid, function (remoteMatch) {
+          if (remoteMatch) {
+            requestedShortId = sid;
+            currentTournamentId = remoteMatch.id;
+            hideSearchGate();
+            els.error.hidden = true;
+            els.wrap.hidden = false;
+            var res = { t: remoteMatch.tournament };
+            if (isConcluded(res.t)) {
+              renderConcluded(res.t);
+            } else {
+              // dyn.js has no updateTournamentName()/renderLiveShow() — use its
+              // own renderHeader() (sets name + LIVE/STANDBY) and render() (full
+              // repaint of leaderboard, Running Score and All Shows).
+              renderHeader(res.t);
+              render();
+              startCountdown();
+            }
+          } else {
+            showGateError('No tournament found for Short ID "' + sid.toUpperCase() + '". It may have been cleared, or the code is incorrect.');
+          }
+        });
+        return;
+      }
       showGateError('No tournament found for Short ID "' + sid.toUpperCase() + '". It may have been cleared, or the code is incorrect.');
       return;
     }

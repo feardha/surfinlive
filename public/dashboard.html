@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Role gate: only organizers (2) and admins (1) may view this page. -->
+  <script src="role-gate.js" data-allow="1,2"></script>
+  <title>SurfinLive — Dashboard</title>
+  <!-- theme.js must load BEFORE the stylesheet paints, or Light mode flashes dark -->
+  <script src="theme.js"></script>
+  <link rel="stylesheet" href="styles.css?v=44" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <span class="logo">🏄</span>
+      <div>
+        <h1>SurfinLive</h1>
+        <p class="tagline">The Dashboard · Tournament Generator (no database)</p>
+        <br>
+      </div>
+    </div>
+    <nav class="nav">
+      <a class="nav-link active" href="dashboard.html">Dashboard</a>
+      <a class="nav-link" href="index.html">Live View</a>
+      <!-- a class="nav-link" href="dyn.html">Dynamic View</a> -->
+      <a class="nav-link" href="judge.html">Judge Panel</a>
+      <a class="nav-link" href="settings.html">Settings</a>
+      <a class="nav-link" href="login.html">Account</a>
+    </nav>
+  </header>
+
+  <main class="layout">
+    <!--
+      Tournament Views. Each "Generate New Tournament" press clones the
+      <template> below into #tournament-views, producing ONE independent
+      tournament cycle (input panel + bracket panel + its own modal overlay).
+      The generate button always sits directly under the latest view, left
+      aligned; every view carries its own "Delete Tournament" button.
+    -->
+    <div id="tournament-views" class="tournament-views"></div>
+
+    <template id="tournament-view-template">
+      <section class="tournament-view">
+        <header class="tournament-view-head">
+          <h2 class="tournament-view-title">Tournament View</h2>
+          <span class="tournament-view-meta" data-meta="shortId"></span>
+        </header>
+
+        <!-- Top: tournament name + participants -->
+        <section class="panel input-panel">
+          <h2>1 · Tournament Name</h2>
+          <p class="hint">Names the event. Appears on the Live View once a live status is confirmed.</p>
+          <input class="text-input tournament-name" type="text" maxlength="60" placeholder="e.g. Pipeline Pro-Am 2026" autocomplete="off" />
+
+          <h2 class="section-sep">2 · Enter participants</h2>
+          <p class="hint">One name per line (2 minimum). Click a sample to load it.</p>
+          <div class="samples">
+            <button type="button" class="chip" data-sample="8">8 surfers</button>
+            <button type="button" class="chip" data-sample="12">12 surfers</button>
+            <button type="button" class="chip" data-sample="16">16 surfers</button>
+            <button type="button" class="chip" data-sample="32">32 surfers</button>
+            <button type="button" class="chip" data-sample="64">64 surfers</button>
+          </div>
+          <textarea class="names" rows="10" placeholder="Kelly Slater&#10;Layne Beachley&#10;Gabriel Medina&#10;..."></textarea>
+          <!--div class="cps-block">
+            <label class="field-label" for="cps-dash">Contestants per show</label>
+            <span class="field-desc">Each show seats this many (or one more); top 2 advance. Final is always 4. Range 3&ndash;8.</span>
+            <span class="field-row">
+              <input class="text-input" type="number" id="cps-dash" name="cpsDash" min="3" max="8" step="1" value="4" />
+              <button type="button" class="btn btn-primary" id="cps-dash-ok">OK</button>
+            </span>
+            <p id="cps-readout" class="cps-readout" role="status" aria-live="polite"></p>
+          </div> -->
+          <div class="row">
+            <button class="btn btn-primary generate-bracket">Generate bracket</button>
+            <button class="btn btn-ghost clear-input">Clear</button>
+          </div>
+          <p class="error input-error" hidden></p>
+        </section>
+
+        <!-- Bottom: bracket -->
+        <section class="panel bracket-panel">
+          <div class="bracket-toolbar" hidden>
+            <h2>3 · Bracket</h2>
+            <div class="toolbar-actions">
+              <button class="btn btn-primary round-randomizer">🎲 Redistribute</button>
+              <button class="btn btn-primary simulate" hidden style="display: none !important;" aria-hidden="true">🎲 Simulate (random)</button>
+              <button class="btn btn-ghost reset">↺ Reset results</button>
+            </div>
+          </div>
+          <div class="mode-banner" hidden></div>
+          <div class="tourney-name" hidden></div>
+          <div class="short-id-wrap" hidden>
+            <span class="short-id-label">Short ID</span>
+            <span class="short-id"></span>
+            <button class="share-btn share-shortid" type="button" title="Share this tournament link">🔗 Share</button>
+          </div>
+          <div class="bracket"></div>
+          <div class="champion-card" hidden></div>
+        </section>
+
+        <footer class="tournament-view-foot">
+          <span class="tournament-view-status" data-meta="status"></span>
+          <button class="btn btn-danger delete-tournament" type="button">Delete Tournament</button>
+        </footer>
+
+        <!-- Confirmation modal for Start / End show actions (per view) -->
+        <div class="modal-overlay" hidden>
+          <div class="modal-box">
+            <p class="modal-title"></p>
+            <div class="modal-actions">
+              <button class="btn btn-primary modal-yes">Yes</button>
+              <button class="btn btn-ghost modal-no">No</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </template>
+
+    <!-- One button per press; always placed under the latest Tournament View,
+         aligned left (see app.js `placeGenerateButton()`). -->
+    <button id="generate-new-tournament" class="btn btn-primary generate-new-tournament" type="button">Generate New Tournament</button>
+  </main>
+
+  <footer class="app-footer">
+    <span>SurfinLive · tournament engine runs entirely in your browser. No data is stored.</span>
+  </footer>
+
+  <script>document.querySelectorAll('.app-footer span').forEach(function (s) { s.textContent = 'Powered by PSOI Kota Depok - ' + new Date().getFullYear(); });</script>
+
+  <script src="store.js?v=8"></script>
+  <script src="settings-store.js?v=5"></script>
+  <script src="tournament.js?v=8"></script>
+  <script src="app.js?v=12"></script>
+</body>
+</html>

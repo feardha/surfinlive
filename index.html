@@ -4,10 +4,15 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SurfinLive — Live View</title>
+  <meta name="description" content="Browser-based surf tournament generator, live broadcast streaming, and judging panel for PSOI Kota Depok." />
+  <meta property="og:title" content="SurfinLive — Live View" />
+  <meta property="og:description" content="Browser-based surf tournament generator, live broadcast streaming, and judging panel for PSOI Kota Depok." />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
   <!-- This is the main page (Live View). Dashboard lives at dashboard.html -->
   <!-- theme.js must load BEFORE the stylesheet paints, or Light mode flashes dark -->
   <script src="theme.js"></script>
-  <link rel="stylesheet" href="styles.css?v=34" />
+  <link rel="stylesheet" href="styles.css?v=43" />
 </head>
 <body>
   <header class="app-header">
@@ -25,6 +30,8 @@
       <!-- <a class="nav-link" href="dyn.html">Dynamic View</a> -->
       <a class="nav-link" href="judge.html">Judge Panel</a>
       <a class="nav-link" href="settings.html">Settings</a>
+      <a class="nav-link" href="login.html" id="nav-login">Sign in</a>
+      <a class="nav-link" href="admin.html" id="nav-admin" style="display:none">Admin</a>
     </nav>
   </header>
 

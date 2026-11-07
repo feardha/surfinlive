@@ -1,16 +1,14 @@
-/* SurfinLive — shared durable store.
+/* SurfinLive — Modernized Shared Durable & Real-time Store.
  *
- * Persists EVERY generated tournament so nothing is lost when you navigate
- * between the Dashboard and the Live View, or when the page reloads. Uses
- * localStorage (survives tab close / reload / new tab); if storage is
- * unavailable (e.g. file:// in some browsers, private mode) it falls back to
- * an in-memory object for the lifetime of the tab.
+ * Persists EVERY generated tournament both in local storage (for zero-latency UI)
+ * AND in the SQLite backend database via /api/tournaments.
  *
- * Layout in storage:
- *   surfinlive.tournaments  -> { [id]: { id, createdAt, title, tournament } }
- *   surfinlive.current      -> <id of the most-recently-generated tournament>
+ * Supports real-time Server-Sent Events (SSE) via /api/live-stream so that
+ * when an organizer hits "Start Heat" or advances a round on the Dashboard, or
+ * a judge enters scores on the Judge Panel, the Live View and Dynamic View
+ * update in real time across ALL connected devices and screens.
  *
- * Exposed as window.SurfinStore (and module.exports for Node tests).
+ * Fully backward-compatible with the Node.js test suite.
  */
 (function (global) {
   'use strict';
@@ -18,7 +16,7 @@
   var KEY_ALL = 'surfinlive.tournaments';
   var KEY_CUR = 'surfinlive.current';
 
-  // In-memory fallback when localStorage throws (private mode, file://, quota).
+  // In-memory fallback when localStorage is unavailable
   var mem = { all: {}, current: null };
   var hasLS = (function () {
     try {
@@ -29,9 +27,6 @@
     } catch (e) { return false; }
   })();
 
-  // In-memory subscribers notified on every write (put/get clearing current).
-  // Lets the Dynamic View mirror the Judge Panel's updates within the same
-  // page/worker without waiting for a cross-tab storage event.
   var subscribers = [];
   function onChange(fn) {
     if (typeof fn === 'function' && subscribers.indexOf(fn) === -1) subscribers.push(fn);
@@ -49,21 +44,22 @@
       return raw ? JSON.parse(raw) : {};
     } catch (e) { return mem.all; }
   }
+
   function writeAll(obj) {
     if (!hasLS) { mem.all = obj; return; }
     try { global.localStorage.setItem(KEY_ALL, JSON.stringify(obj)); } catch (e) { mem.all = obj; }
   }
+
   function readCurrent() {
     if (!hasLS) return mem.current;
     try { return global.localStorage.getItem(KEY_CUR) || null; } catch (e) { return mem.current; }
   }
+
   function writeCurrent(id) {
     if (!hasLS) { mem.current = id; return; }
     try { global.localStorage.setItem(KEY_CUR, id); } catch (e) { mem.current = id; }
   }
-  // Correct any legacy tournament saved under the old '*10' score encoding on read.
-  // Window.SurfinLive/normalizeScores is defined by tournament.js (loaded before store
-  // consumers run), so it's available by the time any get* is actually called.
+
   function normalize(t) {
     var S = (typeof window !== 'undefined' && window.SurfinLive) ? window.SurfinLive : null;
     return S && typeof S.normalizeScores === 'function' ? S.normalizeScores(t) : t;
@@ -73,10 +69,143 @@
     return 'T' + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36);
   }
 
-  // Build a short human title from the participant list / size.
   function makeTitle(tournament) {
     var size = (tournament && tournament.participants != null) ? tournament.participants : '?';
     return size + ' surfers';
+  }
+
+  // --- Remote Backend Sync & SSE -------------------------------------------
+  var isBrowser = typeof window !== 'undefined' && typeof fetch !== 'undefined';
+  var liveEventSource = null;
+
+  function pushTournamentToServer(tournament) {
+    if (!isBrowser || !tournament) return;
+    try {
+      fetch('/api/tournaments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ tournament: tournament })
+      }).catch(function () {});
+    } catch (e) {}
+  }
+
+  // Register a tournament cycle (Generate New Tournament). Returns a promise
+  // resolving to { ok, tournamentId, shortId, url } or null on failure.
+  function createTournament(tournament, meta) {
+    if (!isBrowser || !tournament) return Promise.resolve(null);
+    return fetch('/api/tournaments/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        tournament: tournament,
+        tournamentId: tournament.__id,
+        shortId: tournament.shortId,
+        name: tournament.name,
+        participants: tournament.participants,
+        url: (meta && meta.url) || null
+      })
+    }).then(function (res) { return res.ok ? res.json() : null; }).catch(function () { return null; });
+  }
+
+  // Soft delete a tournament cycle. The row stays in the database with
+  // is_deleted = 1 and is audited; it disappears from the active list.
+  function deleteTournament(tournament) {
+    if (!isBrowser || !tournament) return Promise.resolve(null);
+    return fetch('/api/tournaments/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        shortId: tournament.shortId,
+        tournamentId: tournament.__id
+      })
+    }).then(function (res) { return res.ok ? res.json() : null; }).catch(function () { return null; });
+  }
+
+  // Active tournament cycles: { tournamentId, shortId, name, url }.
+  function fetchActiveTournaments() {
+    if (!isBrowser) return Promise.resolve([]);
+    return fetch('/api/tournaments/active', { credentials: 'same-origin' })
+      .then(function (res) { return res.ok ? res.json() : null; })
+      .then(function (data) { return (data && data.tournaments) || []; })
+      .catch(function () { return []; });
+  }
+
+  function fetchServerTournaments() {
+    if (!isBrowser) return;
+    try {
+      fetch('/api/tournaments', { credentials: 'same-origin' })
+        .then(function (res) { return res.ok ? res.json() : null; })
+        .then(function (data) {
+          if (!data || !Array.isArray(data.tournaments) || data.tournaments.length === 0) return;
+          var all = readAll();
+          var updated = false;
+          data.tournaments.forEach(function (item) {
+            if (!item.tournament) return;
+            var t = item.tournament;
+            var id = t.__id || ('T_' + (t.shortId || item.shortId));
+            t.__id = id;
+            if (!all[id] || (item.updatedAt && (!all[id].createdAt || item.updatedAt > all[id].createdAt))) {
+              all[id] = {
+                id: id,
+                createdAt: new Date(item.createdAt || Date.now()).getTime(),
+                title: makeTitle(t),
+                tournament: t
+              };
+              updated = true;
+            }
+          });
+          if (updated) {
+            writeAll(all);
+            if (!readCurrent() && data.tournaments[0] && data.tournaments[0].tournament) {
+              writeCurrent(data.tournaments[0].tournament.__id);
+            }
+            notify();
+          }
+        })
+        .catch(function () {});
+    } catch (e) {}
+  }
+
+  function connectLiveStream() {
+    if (!isBrowser || typeof EventSource === 'undefined') return;
+    if (liveEventSource) return;
+
+    try {
+      liveEventSource = new EventSource('/api/live-stream');
+
+      liveEventSource.onmessage = function (event) {
+        try {
+          var payload = JSON.parse(event.data);
+          if (payload.type === 'tournament_sync' && payload.tournament) {
+            var t = payload.tournament;
+            var all = readAll();
+            var id = t.__id || ('T_' + (t.shortId || payload.shortId));
+            t.__id = id;
+            all[id] = {
+              id: id,
+              createdAt: Date.now(),
+              title: makeTitle(t),
+              tournament: t
+            };
+            writeAll(all);
+            writeCurrent(id);
+            notify();
+          }
+        } catch (err) {}
+      };
+
+      liveEventSource.onerror = function () {
+        if (liveEventSource) {
+          liveEventSource.close();
+          liveEventSource = null;
+        }
+        // Graceful reconnect after 5s
+        setTimeout(connectLiveStream, 5000);
+      };
+    } catch (e) {}
   }
 
   var api = {
@@ -86,10 +215,6 @@
     put: function (tournament) {
       var all = readAll();
       var id = tournament.__id || generateId();
-      // Stamp the id/createdAt back onto the object so future saves (Start/End,
-      // Live View tick persistence) REUSE the same record instead of cloning a
-      // new one. This keeps both the Live View (current pointer) and the
-      // Dynamic View (shortId lookup) pointed at a single, always-current copy.
       tournament.__id = id;
       tournament.__createdAt = tournament.__createdAt || Date.now();
       all[id] = {
@@ -101,6 +226,10 @@
       writeAll(all);
       writeCurrent(id);
       notify();
+
+      // Async sync to SQLite backend
+      pushTournamentToServer(tournament);
+
       return id;
     },
 
@@ -110,26 +239,55 @@
       return all[id] ? normalize(all[id].tournament) : null;
     },
 
-    // Resolve a tournament by its generated Short ID (e.g. "JQJKJ1"), case-
-    // insensitively. Returns { id, tournament } or null if no match. Used by the
-    // Dynamic page (dyn.html) to broadcast one specific tournament by its code.
+    // Resolve a tournament by its generated Short ID (case-insensitively).
     getByShortId: function (shortId) {
       if (!shortId) return null;
-      var sid = String(shortId).toUpperCase();
+      var sid = String(shortId).toUpperCase().trim();
       var all = readAll();
       var keys = Object.keys(all);
-      // Search newest-created first so a re-published (Start/End) bracket wins
-      // over any earlier stale snapshot that happens to share the same Short ID.
       var sorted = keys
         .map(function (k) { return all[k]; })
         .sort(function (a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
       for (var i = 0; i < sorted.length; i++) {
         var rec = sorted[i];
-        if (rec && rec.tournament && rec.tournament.shortId === sid) {
+        if (rec && rec.tournament && String(rec.tournament.shortId).toUpperCase() === sid) {
           return { id: rec.id, tournament: normalize(rec.tournament) };
         }
       }
       return null;
+    },
+
+    // Async fallback to fetch from server if not found in local cache
+    getByShortIdAsync: function (shortId, callback) {
+      var local = api.getByShortId(shortId);
+      if (local) {
+        if (callback) callback(local);
+        return;
+      }
+      if (!isBrowser) {
+        if (callback) callback(null);
+        return;
+      }
+      var sid = String(shortId).toUpperCase().trim();
+      fetch('/api/tournaments/' + encodeURIComponent(sid), { credentials: 'same-origin' })
+        .then(function (res) { return res.ok ? res.json() : null; })
+        .then(function (data) {
+          if (data && data.tournament) {
+            var t = data.tournament;
+            var id = t.__id || ('T_' + sid);
+            t.__id = id;
+            var all = readAll();
+            all[id] = { id: id, createdAt: Date.now(), title: makeTitle(t), tournament: t };
+            writeAll(all);
+            notify();
+            if (callback) callback({ id: id, tournament: normalize(t) });
+          } else {
+            if (callback) callback(null);
+          }
+        })
+        .catch(function () {
+          if (callback) callback(null);
+        });
     },
 
     // All tournaments, most-recently-created first.
@@ -149,10 +307,13 @@
       return id ? api.get(id) : null;
     },
 
-    // Make `id` the current tournament (e.g. when the user picks it in Live View).
-    setCurrent: function (id) { writeCurrent(id); },
+    // Make `id` the current tournament.
+    setCurrent: function (id) {
+      writeCurrent(id);
+      notify();
+    },
 
-    // Remove a tournament from the cache. If it was current, clears the pointer.
+    // Remove a tournament from the cache.
     remove: function (id) {
       var all = readAll();
       delete all[id];
@@ -161,8 +322,12 @@
       notify();
     },
 
-    // Subscribe to any change (put/remove/clear). Used by the Dynamic View to
-    // mirror the Judge Panel in real time. Returns an unsubscribe function.
+    // Register / soft-delete / list tournament cycles on the backend.
+    createTournament: createTournament,
+    deleteTournament: deleteTournament,
+    fetchActiveTournaments: fetchActiveTournaments,
+
+    // Subscribe to changes.
     onChange: function (fn) {
       onChange(fn);
       return function () {
@@ -177,8 +342,19 @@
       writeCurrent(null);
       if (!hasLS) { mem.all = {}; mem.current = null; }
       notify();
+    },
+
+    // Trigger manual re-fetch from server.
+    refreshFromServer: function () {
+      fetchServerTournaments();
     }
   };
+
+  // Start real-time SSE listener and initial fetch in browser
+  if (isBrowser) {
+    fetchServerTournaments();
+    connectLiveStream();
+  }
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else global.SurfinStore = api;

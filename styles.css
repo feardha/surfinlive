@@ -160,6 +160,8 @@ textarea:focus { outline: 2px solid var(--primary); border-color: transparent; }
 .btn-green:hover { filter: brightness(1.05); }
 .btn-danger { background: var(--elim); color: var(--live-ink); border-color: transparent; font-weight: 600; }
 .btn-danger:hover { filter: brightness(1.05); }
+/* Compact square button for dense table rows (the Details panel "+"). */
+.btn-sm { padding: 4px 10px; font-size: 13px; line-height: 1.2; border-radius: 8px; }
 .btn-ghost { background: transparent; }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
 .error { color: var(--elim); font-size: 13px; margin-top: 10px; }
@@ -180,6 +182,32 @@ textarea:focus { outline: 2px solid var(--primary); border-color: transparent; }
 .modal-title { margin: 0 0 18px; font-size: 16px; font-weight: 600; color: var(--text); }
 .modal-actions { display: flex; gap: 12px; justify-content: center; }
 .modal-actions .btn { min-width: 84px; }
+
+/* Score-entry <dialog> (Judge Panel Details "+"). A native <dialog> keeps the
+   browser's default white/black chrome unless it is themed explicitly, which is
+   why it looked out of place on the dark panel. Tokens are used throughout so
+   it follows Light/Dark automatically. */
+dialog {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px 22px;
+  min-width: 260px;
+  max-width: 90vw;
+}
+dialog::backdrop { background: var(--overlay); backdrop-filter: blur(2px); }
+dialog p { margin: 0 0 12px; font-size: 14px; color: var(--text); }
+dialog input[type="text"] {
+  width: 100%; padding: 10px 12px; font-size: 15px;
+  background: var(--input-bg); color: var(--text);
+  border: 1px solid var(--line); border-radius: 10px; outline: none;
+  font-variant-numeric: tabular-nums;
+}
+dialog input[type="text"]:focus { border-color: var(--primary); }
+.dialog-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+.dialog-actions .btn { min-width: 84px; }
 
 .bracket-toolbar { display: flex; justify-content: space-between; align-items: center; }
 .toolbar-actions { display: flex; gap: 8px; }
@@ -278,6 +306,45 @@ textarea:focus { outline: 2px solid var(--primary); border-color: transparent; }
 
 .app-footer { padding: 14px 28px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--line); text-align: center; }
 
+/* --- Tournament View package ------------------------------------------
+   One "Tournament View" = input panel + bracket panel + modal overlay,
+   wrapped in a single bordered package with its own header and footer.
+   Generated one per "Generate New Tournament" press; the generate button
+   always sits under the latest view, aligned left. */
+.tournament-views { display: grid; gap: 22px; }
+.tournament-view {
+  display: grid;
+  gap: 18px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px;
+  box-shadow: var(--shadow);
+}
+.tournament-view-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding-bottom: 12px; border-bottom: 1px solid var(--line);
+}
+.tournament-view-title { margin: 0; font-size: 16px; }
+.tournament-view-meta {
+  font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums;
+  background: var(--panel-2); border: 1px solid var(--line);
+  border-radius: 999px; padding: 4px 10px;
+}
+.tournament-view-meta[data-meta="shortId"]:empty { display: none; }
+.tournament-view-foot {
+  display: flex; align-items: center; gap: 12px;
+  padding-top: 12px; border-top: 1px solid var(--line);
+}
+.tournament-view-foot .delete-tournament { margin-left: auto; }
+.tournament-view-status { font-size: 12px; color: var(--muted); }
+/* Generate button: always under the latest view, aligned left. */
+.generate-new-tournament {
+  justify-self: start;
+  padding: 11px 18px;
+  font-size: 15px;
+}
+
 /* Top navigation */
 .nav { display: flex; gap: 6px; margin-left: auto; }
 .nav-link {
@@ -374,27 +441,62 @@ textarea:focus { outline: 2px solid var(--primary); border-color: transparent; }
   border-radius: var(--radius);
   background: var(--panel-2);
   padding: 10px 12px;
+  /* The score table is wide (10 slots). The WHOLE table scrolls together, so no
+     row can ever drift out of alignment with another one. */
+  overflow-x: auto;
 }
 .details-row {
   display: grid;
-  grid-template-columns: 56px 56px 1fr auto;
+  /* Action | Name | score slot 1..10.
+     EVERY track is a fixed width. Each row is its own grid, so a flexible track
+     would be sized per-row from that row's own content — a short name would pull
+     the score columns left and break alignment with the other rows. Fixed tracks
+     make Action, Name and Scores completely independent of each other. */
+  grid-template-columns: 52px 150px repeat(10, 44px);
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   padding: 6px 4px;
   border-bottom: 1px solid var(--line);
-  font-size: 14px;
+  font-size: 13px;
+  /* Keep every track at its real size so the panel scrolls instead of squashing
+     the columns into each other. */
+  min-width: max-content;
 }
 .details-row:last-child { border-bottom: none; }
-.details-head { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
-.details-prio { font-weight: 700; color: var(--text); }
-.details-color { text-align: center; }
-.details-color .priority-badge {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 26px; height: 26px; border-radius: 50%;
-  font-size: 12px; font-weight: 700;
+/* Every header label centres over its column, so it lines up with the value
+   beneath it. */
+.details-head {
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: .4px;
+  color: var(--muted);
 }
-.details-name { color: var(--text); }
-.details-score { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; color: var(--score-ink); }
+.details-head span { text-align: center; }
+.details-head span:nth-child(2) { text-align: left; }   /* Name reads left-aligned */
+/* The "+" button, tinted with the contestant's colour. Background and text
+   colour are set inline from judge.js (the colour lives on the contestant). */
+.details-action-btn {
+  margin: 0;
+  width: 30px; height: 26px;
+  padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 700; line-height: 1;
+  border: 1px solid transparent;
+  border-radius: 7px;
+}
+.details-name { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* One cell per score slot. Centred in a fixed-width cell so the gap between any
+   two scores is identical regardless of how many digits they have. */
+.details-score {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--score-ink);
+  white-space: nowrap;
+}
+.details-score.is-empty { opacity: .28; }
+.details-action { display: flex; align-items: center; justify-content: center; }
+.details-action .btn { margin: 0; }
+/* Header labels must not wrap; they now sit in five columns too. */
+.details-head span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .btn.active { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(47,125,225,.25) inset; }
 /* Floating clone that follows the cursor */
 .rs-ghost {

@@ -1,10 +1,13 @@
-# Dependencies
 node_modules/
-
-# Generated/large binary assets (keep repo lean; not source)
-*.png
-bracket_*.svg
-
-# OS / editor cruft
+build/
+dist/
+coverage/
 .DS_Store
-*.swp
+*.log
+.env*
+!.env.example
+
+# Local SQLite database (contains user credentials; schema lives in Event.db.sql)
+Event.db
+Event.db-shm
+Event.db-wal

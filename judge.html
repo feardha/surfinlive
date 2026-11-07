@@ -8,7 +8,7 @@
   <title>SurfinLive — Judge Panel</title>
   <!-- theme.js must load BEFORE the stylesheet paints, or Light mode flashes dark -->
   <script src="theme.js"></script>
-  <link rel="stylesheet" href="styles.css?v=34" />
+  <link rel="stylesheet" href="styles.css?v=43" />
 </head>
 <body>
   <header class="app-header">
@@ -26,6 +26,7 @@
       <!-- <a class="nav-link" href="dyn.html">Dynamic View</a> -->
       <a class="nav-link active" href="judge.html">Judge Panel</a>
       <a class="nav-link" href="settings.html">Settings</a>
+      <a class="nav-link" href="login.html" id="j-nav-account">Sign in</a>
     </nav>
   </header>
 
@@ -81,14 +82,37 @@
           </table>
         </div>
         <div class="live-actions">
-          <button id="j-details" class="btn btn-green">Details</button>
+          <button id="j-details" class="btn btn-green">Add Score</button>
         </div>
         <div class="details-panel" id="j-details-panel" hidden>
           <div class="details-row details-head">
-            <span>Priority</span><span>Color</span><span>Name</span><span>Score</span>
+            <span>Action</span>
+            <span>Name</span>
+            <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
+            <span>6</span><span>7</span><span>8</span><span>9</span><span>10</span>
           </div>
           <div id="j-details-body"></div>
         </div>
+        <!-- Dialog for adding a score -->
+        <dialog id="j-score-dialog">
+          <form method="dialog" id="j-score-form">
+            <p>Add Wave Score (0.00 – 10.00)</p>
+            <div class="score-presets" style="display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap;">
+              <button type="button" class="chip" data-score="4.50">4.50</button>
+              <button type="button" class="chip" data-score="6.00">6.00</button>
+              <button type="button" class="chip" data-score="7.25">7.25</button>
+              <button type="button" class="chip" data-score="8.50">8.50</button>
+              <button type="button" class="chip" data-score="9.50">9.50</button>
+            </div>
+            <input type="text" id="j-score-input" inputmode="decimal"
+                   pattern="\d{0,2}(\.\d{0,2})?" placeholder="0.00" maxlength="5"
+                   aria-label="Wave score" autocomplete="off" />
+            <div class="dialog-actions">
+              <button type="button" id="j-score-cancel" class="btn btn-ghost">Cancel</button>
+              <button value="ok" class="btn btn-green">OK</button>
+            </div>
+          </form>
+        </dialog>
       </div>
 
       <!-- Champion announcement (shown only when the tournament has concluded and there is no show to display) -->
@@ -111,6 +135,6 @@
 
   <script src="store.js?v=7"></script>
   <script src="tournament.js?v=10"></script>
-  <script src="judge.js?v=20"></script>
+  <script src="judge.js?v=27"></script>
 </body>
 </html>

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SurfinLive — Live View</title>
+  <meta name="description" content="Browser-based surf tournament generator, live broadcast streaming, and judging panel for PSOI Kota Depok." />
+  <meta property="og:title" content="SurfinLive — Live View" />
+  <meta property="og:description" content="Browser-based surf tournament generator, live broadcast streaming, and judging panel for PSOI Kota Depok." />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <!-- This is the main page (Live View). Dashboard lives at dashboard.html -->
+  <!-- theme.js must load BEFORE the stylesheet paints, or Light mode flashes dark -->
+  <script src="theme.js"></script>
+  <link rel="stylesheet" href="styles.css?v=43" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <span class="logo">🏄</span>
+      <div>
+        <h1>SurfinLive</h1>
+        <p class="tagline">Live View · streaming a show in real time</p>
+       <br>
+      </div>
+    </div>
+    <nav class="nav">
+      <a class="nav-link" href="dashboard.html">Dashboard</a>
+      <a class="nav-link active" href="index.html">Live View</a>
+      <!-- <a class="nav-link" href="dyn.html">Dynamic View</a> -->
+      <a class="nav-link" href="judge.html">Judge Panel</a>
+      <a class="nav-link" href="settings.html">Settings</a>
+      <a class="nav-link" href="login.html" id="nav-login">Sign in</a>
+      <a class="nav-link" href="admin.html" id="nav-admin" style="display:none">Admin</a>
+    </nav>
+  </header>
+
+  <main class="live-wrap">
+    <div class="live-status">
+      <span class="live-dot"></span>
+      <span class="live-tag" id="live-tag">Live</span>
+      <span class="live-meta" id="live-meta">connecting…</span>
+    </div>
+    <div class="live-select-row">
+      <label for="countdown" id="tournament-label">TOURNAMENT</label>
+      <span id="countdown" class="live-select live-countdown">20:00</span>
+    </div>
+    <div class="live-card" id="live-card">
+      <div class="live-round" id="live-round">—</div>
+      <div class="live-show-title" id="live-show">—</div>
+      <div class="live-table-wrap">
+        <table class="live-table" id="live-list">
+          <thead>
+            <tr><th>#</th><th>Name</th><th>Score</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="live-card" id="detail-card">
+      <div class="live-detail-title">Running Score</div>
+      <div class="live-table-wrap">
+        <table class="live-table" id="detail-list">
+          <thead>
+            <tr><th>Color and Priority</th><th>Name</th><th>High 1st</th><th>High 2nd</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="live-actions">
+        <button id="detail-details" class="btn btn-green">Details</button>
+      </div>
+    </div>
+
+    <!-- Champion announcement (shown only when the tournament has concluded) -->
+    <div class="champion-card live-view-champion" id="champion-card" hidden>
+      <div class="champion-emoji">🏆</div>
+      <h2 class="champion-head">Champion</h2>
+      <div class="champion-name" id="champion-name"></div>
+      <div class="champion-ru">Runner-up: <span id="champion-ru"></span></div>
+      <div class="champion-3rd">3rd place: <span id="champion-3rd"></span></div>
+      <div class="champion-4th">4th place: <span id="champion-4th"></span></div>
+    </div>
+
+  <footer class="app-footer">
+    <span id="live-footer-text">SurfinLive · this is a simulated live view for the prototype. Scores are dummy and tick in real time.</span>
+  </footer>
+
+  <script>document.querySelectorAll('.app-footer span').forEach(function (s) { s.textContent = 'Powered by PSOI Kota Depok - ' + new Date().getFullYear(); });</script>
+
+  <script src="store.js?v=7"></script>
+  <script src="tournament.js?v=8"></script>
+  <script src="live.js?v=10"></script>
+</body>
+</html>

@@ -123,26 +123,43 @@
     .pager .info { color: var(--muted); font-size: 13px; }
     code.badge { background: var(--panel-2); padding: 2px 6px; border-radius: 6px; }
   </style>
-</head>
-<body>
-  <div class="topbar">
-    <button class="btn-logout" id="logoutBtn" type="button">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-        <polyline points="16 17 21 12 16 7" />
-        <line x1="21" y1="12" x2="9" y2="12" />
-      </svg>
-      Sign out
-    </button>
-  </div>
+  <style>
+    .admin-nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-left: auto; }
+    .admin-nav .nav-link {
+      padding: 7px 14px; border-radius: 999px; font-size: 13px; text-decoration: none;
+      color: var(--muted); border: 1px solid var(--line); background: var(--panel-2);
+      transition: all 0.15s ease;
+    }
+    .admin-nav .nav-link:hover { border-color: var(--primary); color: var(--text); }
+    .admin-nav .nav-link.active { background: var(--primary); color: var(--primary-ink); border-color: transparent; font-weight: 600; }
+  </style>
 
   <div class="wrap">
+    <header class="app-header" style="margin-bottom: 24px; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; border-radius: var(--radius); background: var(--panel); border: 1px solid var(--line); flex-wrap: wrap; gap: 14px;">
+      <div class="brand" style="display: flex; align-items: center; gap: 12px;">
+        <span class="logo" style="font-size: 26px;">🏄</span>
+        <div>
+          <h1 style="font-size: 18px; margin: 0;">SurfinLive</h1>
+          <p class="tagline" style="margin: 0; font-size: 12px; color: var(--muted);">Administrator Mode · Full System Access</p>
+        </div>
+      </div>
+      <nav class="admin-nav">
+        <a class="nav-link" href="dashboard.html">Dashboard</a>
+        <a class="nav-link" href="index.html">Live View</a>
+        <a class="nav-link" href="judge.html">Judge Panel</a>
+        <a class="nav-link" href="dyn.html">Dynamic View</a>
+        <a class="nav-link" href="athlete.html">Athlete</a>
+        <a class="nav-link" href="settings.html">Settings</a>
+        <a class="nav-link active" href="admin.html">Admin</a>
+        <button class="nav-link" id="logoutBtn" type="button" style="cursor: pointer; background: transparent; border: 1px solid var(--line); color: var(--muted);">Sign out</button>
+      </nav>
+    </header>
+
     <div class="head">
       <div class="logo">SL</div>
       <div>
         <h1>Admin Console</h1>
-        <div class="sub">Create users &amp; view the registered users table</div>
+        <div class="sub">User management, role assignment &amp; license control</div>
       </div>
     </div>
 
@@ -218,11 +235,21 @@
     const API = "";  // same origin
     let currentPage = 1;
 
+    function getAuthHeaders(extra) {
+      const headers = extra || {};
+      const token = localStorage.getItem("sl_token");
+      if (token) headers["Authorization"] = "Bearer " + token;
+      return headers;
+    }
+
     // ---- Populate role dropdown from glossary (user_roles scope) ----------
     async function loadRoles() {
       const sel = document.getElementById("role");
       try {
-        const res = await fetch(API + "/api/glossary/user_roles", { credentials: "same-origin" });
+        const res = await fetch(API + "/api/glossary/user_roles", {
+          headers: getAuthHeaders(),
+          credentials: "same-origin"
+        });
         if (res.status === 401 || res.status === 403) { renderAuthError(); return; }
         const data = await res.json();
         sel.innerHTML = '<option value="">Select role…</option>';
@@ -264,7 +291,10 @@
       const info = document.getElementById("pageInfo");
       tbody.innerHTML = '<tr><td class="empty" colspan="6">Loading…</td></tr>';
       try {
-        const res = await fetch(API + "/api/users?page=" + currentPage, { credentials: "same-origin" });
+        const res = await fetch(API + "/api/users?page=" + currentPage, {
+          headers: getAuthHeaders(),
+          credentials: "same-origin"
+        });
         if (res.status === 401 || res.status === 403) { renderAuthError(); return; }
         const data = await res.json();
         const users = data.users || [];
@@ -289,7 +319,7 @@
       try {
         const res = await fetch(API + "/api/users/search", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: getAuthHeaders({ "Content-Type": "application/json" }),
           credentials: "same-origin",
           body: JSON.stringify({ q: q }),
         });
@@ -349,7 +379,7 @@
       try {
         const res = await fetch(API + "/api/users", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: getAuthHeaders({ "Content-Type": "application/json" }),
           credentials: "same-origin",
           body: JSON.stringify(payload),
         });
@@ -398,14 +428,17 @@
       loadUsers(1);
     });
 
-    // ---- Init --------------------------------------------------------------
+    // ---- Logout ------------------------------------------------------------
     document.getElementById("logoutBtn").addEventListener("click", async () => {
       try {
         await fetch(API + "/api/logout", {
           method: "POST",
+          headers: getAuthHeaders(),
           credentials: "same-origin",
         });
       } catch (e) { /* ignore network errors; we redirect regardless */ }
+      localStorage.removeItem("sl_token");
+      localStorage.removeItem("sl_user");
       window.location.href = "/login.html";
     });
 

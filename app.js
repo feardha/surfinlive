@@ -1,83 +1,18 @@
-/* SurfinLive — UI controller. Depends on tournament.js (window.SurfinLive). */
+/* SurfinLive — Dashboard UI controller. Depends on tournament.js (window.SurfinLive).
+ *
+ * Layout: every "Generate New Tournament" press clones the tournament-view
+ * <template> into #tournament-views, producing ONE independent Tournament View
+ * (input panel + bracket panel + its own confirmation modal). Each view owns
+ * its own tournament state and writes lifecycle events to the backend
+ * (create / generate / soft delete), which audits them.
+ */
 (function () {
   'use strict';
 
   var S = window.SurfinLive;
-  var els = {
-    tournamentName: document.getElementById('tournament-name'),
-    names: document.getElementById('names'),
-    generate: document.getElementById('generate'),
-    clearInput: document.getElementById('clear-input'),
-    inputError: document.getElementById('input-error'),
-    toolbar: document.getElementById('toolbar'),
-    simulate: document.getElementById('simulate'),
-    reset: document.getElementById('reset'),
-    roundRandomizer: document.getElementById('round-randomizer'),
-    bracket: document.getElementById('bracket'),
-    champion: document.getElementById('champion'),
-    modeBanner: document.getElementById('mode-banner'),
-    tourneyName: document.getElementById('tourney-name'),
-    shortIdWrap: document.getElementById('short-id-wrap'),
-    shortId: document.getElementById('short-id'),
-    shareShortId: document.getElementById('share-shortid'),
-    modalOverlay: document.getElementById('modal-overlay'),
-    modalTitle: document.getElementById('modal-title'),
-    modalYes: document.getElementById('modal-yes'),
-    modalNo: document.getElementById('modal-no')
-  };
-
-  // --- Confirmation modal (Start / End show) ---------------------------
-  // Ask the user "are you sure to Start/End this show?" with Yes / No. The
-  // provided callback only runs if the user clicks Yes; No just closes it.
-  var modalCallback = null;
-  function confirmShow(message, onYes) {
-    els.modalTitle.textContent = message;
-    modalCallback = onYes;
-    els.modalOverlay.hidden = false;
-  }
-  function closeModal() {
-    els.modalOverlay.hidden = true;
-    modalCallback = null;
-  }
-  els.modalYes.addEventListener('click', function () {
-    var cb = modalCallback;
-    closeModal();
-    if (cb) cb();
-  });
-  els.modalNo.addEventListener('click', closeModal);
-  els.modalOverlay.addEventListener('click', function (e) {
-    if (e.target === els.modalOverlay) closeModal(); // click outside = No
-  });
-
-  // --- Share the generated Short ID as a tournament link ----------------
-  // Builds the URL from the page's own host:port, e.g.
-  //   localhost:5000/dyn.html?shortId=ABC123
-  function shareShortIdUrl() {
-    var t = state.tournament;
-    if (!t || !t.shortId) return null;
-    return location.hostname + (location.port ? ':' + location.port : '') +
-           '/dyn.html?shortId=' + encodeURIComponent(t.shortId);
-  }
-  if (els.shareShortId) {
-    els.shareShortId.addEventListener('click', async function () {
-      var url = shareShortIdUrl();
-      if (!url) return;
-      var btn = els.shareShortId;
-      var original = btn.textContent;
-      try {
-        await navigator.clipboard.writeText(url);
-        btn.textContent = '✓ Copied!';
-      } catch (e) {
-        btn.textContent = '⚠ Copy failed';
-      }
-      setTimeout(function () { btn.textContent = original; }, 1800);
-    });
-  }
-
-  var state = {
-    tournament: null,
-    mode: null // 'sim' | 'manual'
-  };
+  var viewsRoot = document.getElementById('tournament-views');
+  var template = document.getElementById('tournament-view-template');
+  var generateNewBtn = document.getElementById('generate-new-tournament');
 
   var SAMPLE_SETS = {
     8: ['Kelly Slater', 'Layne Beachley', 'Gabriel Medina', 'Carissa Moore', 'John John Florence', 'Stephanie Gilmore', 'Italo Ferreira', 'Maya Gabeira'],
@@ -87,11 +22,7 @@
 
   function sampleNames(n) {
     if (SAMPLE_SETS[n]) return SAMPLE_SETS[n].join('\n');
-    // Any other count (e.g. 32, 64): generate procedural names so the chip
-    // always produces n entries. Real rosters are reused first when helpful,
-    // then padded with "Surfer N" up to n.
     var out = [];
-    // start from the largest real roster we have, then fill the rest
     var base = SAMPLE_SETS[16] || [];
     for (var i = 0; i < n; i++) {
       out.push(base[i] || ('Surfer ' + (i + 1)));
@@ -99,23 +30,223 @@
     return out.join('\n');
   }
 
-  function parseNames() {
-    return els.names.value
+  function makeShortId() {
+    var letters = '';
+    for (var i = 0; i < 5; i++) {
+      letters += String.fromCharCode(65 + Math.floor(Math.random() * 26));
+    }
+    return letters + Math.floor(Math.random() * 10);
+  }
+
+  function makeId() {
+    return 'T' + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36);
+  }
+
+  function api(path, body) {
+    return fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(body || {})
+    }).then(function (res) { return res.ok ? res.json() : null; }).catch(function () { return null; });
+  }
+
+  function shareUrlFor(shortId) {
+    if (!shortId) return null;
+    return location.protocol + '//' + location.hostname + (location.port ? ':' + location.port : '') +
+           '/dyn.html?shortId=' + encodeURIComponent(shortId);
+  }
+
+  // =======================================================================
+  // TournamentView — one instance per generated tournament cycle
+  // =======================================================================
+  function TournamentView(root, index) {
+    this.root = root;
+    this.index = index;
+    this.state = { tournament: null, mode: null }; // mode: 'sim' | 'manual'
+
+    var q = function (sel) { return root.querySelector(sel); };
+    this.els = {
+      title: q('.tournament-view-title'),
+      metaShortId: q('[data-meta="shortId"]'),
+      metaStatus: q('[data-meta="status"]'),
+      tournamentName: q('.tournament-name'),
+      names: q('.names'),
+      generate: q('.generate-bracket'),
+      clearInput: q('.clear-input'),
+      inputError: q('.input-error'),
+      toolbar: q('.bracket-toolbar'),
+      simulate: q('.simulate'),
+      reset: q('.reset'),
+      roundRandomizer: q('.round-randomizer'),
+      bracket: q('.bracket'),
+      champion: q('.champion-card'),
+      modeBanner: q('.mode-banner'),
+      tourneyName: q('.tourney-name'),
+      shortIdWrap: q('.short-id-wrap'),
+      shortId: q('.short-id'),
+      shareShortId: q('.share-shortid'),
+      modalOverlay: q('.modal-overlay'),
+      modalTitle: q('.modal-title'),
+      modalYes: q('.modal-yes'),
+      modalNo: q('.modal-no'),
+      deleteBtn: q('.delete-tournament')
+    };
+
+    this.modalCallback = null;
+    this.wire();
+    this.refreshHeader();
+  }
+
+  // --- Confirmation modal (Start / End show) ---------------------------
+  TournamentView.prototype.confirmShow = function (message, onYes) {
+    this.els.modalTitle.textContent = message;
+    this.modalCallback = onYes;
+    this.els.modalOverlay.hidden = false;
+  };
+  TournamentView.prototype.closeModal = function () {
+    this.els.modalOverlay.hidden = true;
+    this.modalCallback = null;
+  };
+
+  TournamentView.prototype.wire = function () {
+    var self = this;
+    var els = this.els;
+
+    els.modalYes.addEventListener('click', function () {
+      var cb = self.modalCallback;
+      self.closeModal();
+      if (cb) cb();
+    });
+    els.modalNo.addEventListener('click', function () { self.closeModal(); });
+    els.modalOverlay.addEventListener('click', function (e) {
+      if (e.target === els.modalOverlay) self.closeModal(); // click outside = No
+    });
+
+    els.generate.addEventListener('click', function () { self.generate(); });
+    els.clearInput.addEventListener('click', function () {
+      els.names.value = '';
+      self.clearInputError();
+    });
+    if (els.simulate) els.simulate.addEventListener('click', function () { self.simulate(); });
+    els.reset.addEventListener('click', function () { self.resetResults(); });
+    if (els.roundRandomizer) els.roundRandomizer.addEventListener('click', function () { self.randomizeRound(); });
+
+    if (els.shareShortId) {
+      els.shareShortId.addEventListener('click', function () {
+        var url = shareUrlFor(self.state.tournament && self.state.tournament.shortId);
+        if (!url) return;
+        var btn = els.shareShortId;
+        var original = btn.textContent;
+        navigator.clipboard.writeText(url).then(function () {
+          btn.textContent = '✓ Copied!';
+        }).catch(function () {
+          btn.textContent = '⚠ Copy failed';
+        });
+        setTimeout(function () { btn.textContent = original; }, 1800);
+      });
+    }
+
+    // Sample chips + per-show size control are scoped to THIS view.
+    this.root.querySelectorAll('.chip').forEach(function (chip) {
+      chip.addEventListener('click', function () {
+        var n = parseInt(chip.getAttribute('data-sample'), 10);
+        els.names.value = sampleNames(n);
+        self.clearInputError();
+      });
+    });
+
+    els.deleteBtn.addEventListener('click', function () { self.deleteTournament(); });
+
+    // Seed each view with the 8-surfer sample so it is immediately usable.
+    els.names.value = sampleNames(8);
+  };
+
+  TournamentView.prototype.refreshHeader = function () {
+    var t = this.state.tournament;
+    this.els.title.textContent = 'Tournament View ' + (this.index + 1);
+    this.els.metaShortId.textContent = t && t.shortId ? t.shortId : '';
+    this.els.metaStatus.textContent = t ? (t.__deleted ? 'deleted' : 'active') : 'not generated';
+  };
+
+  // --- Input helpers -----------------------------------------------------
+  TournamentView.prototype.parseNames = function () {
+    return this.els.names.value
       .split('\n')
       .map(function (s) { return s.trim(); })
       .filter(Boolean);
-  }
+  };
 
-  function showInputError(msg) {
-    els.inputError.textContent = msg;
-    els.inputError.hidden = false;
-  }
-  function clearInputError() {
-    els.inputError.hidden = true;
-    els.inputError.textContent = '';
-  }
+  TournamentView.prototype.showInputError = function (msg) {
+    this.els.inputError.textContent = msg;
+    this.els.inputError.hidden = false;
+  };
+  TournamentView.prototype.clearInputError = function () {
+    this.els.inputError.hidden = true;
+    this.els.inputError.textContent = '';
+  };
 
-  function activeRoundIndex(t) {
+  // Source of truth for the per-show size: the Settings page value (the
+  // Dashboard's own control is commented out in the template).
+  TournamentView.prototype.getK = function () {
+    return (window.SurfinSettings) ? window.SurfinSettings.getContestantsPerShow() : 4;
+  };
+
+  // --- Generate ---------------------------------------------------------
+  TournamentView.prototype.generate = function () {
+    var self = this;
+    this.clearInputError();
+    var names = this.parseNames();
+    if (names.length < 2) { this.showInputError('Enter at least 2 participant names.'); return; }
+
+    var tournament;
+    try {
+      tournament = S.generateTournament(names, null, { contestantsPerShow: this.getK() });
+    } catch (e) {
+      this.showInputError(e.message);
+      return;
+    }
+    tournament.name = (this.els.tournamentName ? this.els.tournamentName.value.trim() : '') || 'Untitled Tournament';
+    tournament.tournamentId = makeId();
+    tournament.url = shareUrlFor(tournament.shortId);
+
+    this.state.tournament = tournament;
+    this.state.mode = 'manual';
+    this.els.toolbar.hidden = false;
+    if (this.els.simulate) {
+      this.els.simulate.hidden = true;
+      this.els.simulate.style.display = 'none';
+    }
+    this.setBanner('Manual mode — pick 2 to advance in each show.', false);
+    this.render();
+    this.refreshHeader();
+    this.persist();
+
+    // Backend: register the cycle and audit the "create" operation.
+    window.SurfinStore.createTournament(tournament, { url: tournament.url }).then(function (res) {
+      if (!res || !res.ok) return;
+      tournament.tournamentId = res.tournamentId || tournament.tournamentId;
+      tournament.url = res.url || tournament.url;
+      self.persist();
+      self.refreshHeader();
+    });
+  };
+
+  // --- Persistence (durable cache) --------------------------------------
+  TournamentView.prototype.persist = function () {
+    var t = this.state.tournament;
+    if (!t) return;
+    // Lock in the typed Tournament Name at the moment we persist (i.e. when a
+    // live status is confirmed). This value then flows to the Live View.
+    if (this.els.tournamentName) t.name = this.els.tournamentName.value.trim() || t.name || '';
+    try { window.SurfinStore.put(t); } catch (e) {}
+    try { sessionStorage.setItem('surfinlive.tournament', JSON.stringify(t)); } catch (e) {}
+    var link = document.querySelector('.nav-link[href="index.html"]');
+    if (link) link.setAttribute('data-has-bracket', t ? '1' : '');
+  };
+
+  // --- Rendering ---------------------------------------------------------
+  TournamentView.prototype.activeRoundIndex = function (t) {
     for (var i = 0; i < t.rounds.length; i++) {
       var round = t.rounds[i];
       var hasPending = round.shows.some(function (h) {
@@ -124,9 +255,8 @@
       if (hasPending) return i;
     }
     return -1; // all decided
-  }
+  };
 
-  // --- Rendering ---------------------------------------------------------
   function statusClass(c) {
     if (c.isBye) return 'bye';
     switch (c.status) {
@@ -141,7 +271,7 @@
 
   function fmt(n) { return (n == null ? 0 : n).toFixed(2); }
 
-  function renderContestant(c, opts) {
+  TournamentView.prototype.renderContestant = function (c, opts) {
     var div = document.createElement('div');
     div.className = 'contestant ' + statusClass(c);
     var clickable = opts && opts.clickable;
@@ -175,12 +305,14 @@
       div.appendChild(b2);
     }
     return div;
-  }
+  };
 
-  function render() {
-    var t = state.tournament;
+  TournamentView.prototype.render = function () {
+    var self = this;
+    var t = this.state.tournament;
     if (!t) return;
-    // Surface the tournament's name (centered) and short code beneath the status banner.
+    var els = this.els;
+
     if (t.name && els.tourneyName) {
       els.tourneyName.textContent = t.name;
       els.tourneyName.hidden = false;
@@ -194,7 +326,7 @@
       els.shortIdWrap.hidden = true;
     }
     els.bracket.innerHTML = '';
-    var activeIdx = activeRoundIndex(t);
+    var activeIdx = this.activeRoundIndex(t);
 
     t.rounds.forEach(function (round, ri) {
       var col = document.createElement('div');
@@ -209,7 +341,7 @@
       shows.className = 'shows';
 
       var isActive = (ri === activeIdx);
-      var showScore = state.mode === 'sim' || round.status === 'scored' ||
+      var showScore = self.state.mode === 'sim' || round.status === 'scored' ||
         round.shows.some(function (h) { return h.phase === 'ended'; });
 
       round.shows.forEach(function (show) {
@@ -218,11 +350,6 @@
         var hlabel = document.createElement('div');
         hlabel.className = 'show-label';
         hlabel.textContent = show.label + (round.isFinal ? ' · Final' : ' · top 2 advance');
-        // ONE state badge per show, driven by the live lifecycle the user drives
-        // with Start/End (phase), not by internal bracket progression (status):
-        //   open -> ● LIVE -> ended, and "closed" once the round is advanced.
-        // A freshly generated show therefore reads "open" and only becomes
-        // "● LIVE" after Start is confirmed.
         var stateTag = document.createElement('span');
         if (show.status === 'closed') {
           stateTag.className = 'show-tag tag-closed';
@@ -242,7 +369,6 @@
 
         var phase = show.phase || 'open';
 
-        // Start / End controls (Dashboard-driven live phase).
         var actions = document.createElement('div');
         actions.className = 'show-actions';
         if (phase === 'open') {
@@ -250,7 +376,7 @@
           startBtn.className = 'btn btn-green show-start';
           startBtn.textContent = 'Start';
           startBtn.addEventListener('click', function () {
-            confirmShow('Are you sure to Start this show?', function () { onStartShow(ri, show); });
+            self.confirmShow('Are you sure to Start this show?', function () { self.onStartShow(ri, show); });
           });
           actions.appendChild(startBtn);
         } else if (phase === 'live') {
@@ -258,10 +384,10 @@
           endBtn.className = 'btn btn-danger show-end';
           endBtn.textContent = 'End';
           endBtn.addEventListener('click', function () {
-            confirmShow('Are you sure to End this show?', function () { onEndShow(ri, show); });
+            self.confirmShow('Are you sure to End this show?', function () { self.onEndShow(ri, show); });
           });
           actions.appendChild(endBtn);
-        } else { // ended
+        } else {
           var endedTag = document.createElement('div');
           endedTag.className = 'unlock-note';
           endedTag.textContent = '✓ ended — select 2 to advance';
@@ -270,34 +396,31 @@
 
         show.contestants.forEach(function (c) {
           var clickable = phase === 'ended' && !c.isBye && c.status === 'pending';
-          var node = renderContestant(c, { clickable: clickable, showScore: showScore });
+          var node = self.renderContestant(c, { clickable: clickable, showScore: showScore });
           if (clickable) {
-            node.addEventListener('click', function () { onPick(ri, show, c); });
+            node.addEventListener('click', function () { self.onPick(ri, show, c); });
           }
           hdiv.appendChild(node);
         });
-        // Start / End controls live UNDER the contestant names (not above them).
         hdiv.appendChild(actions);
         shows.appendChild(hdiv);
       });
       col.appendChild(shows);
 
-      // round action button for manual mode
-      if (state.mode === 'manual') {
+      if (self.state.mode === 'manual') {
         var actions = document.createElement('div');
         actions.className = 'round-actions';
         if (isActive) {
-          var pickedCount = countPicked(round);
+          var pickedCount = self.countPicked(round);
           var btn = document.createElement('button');
           btn.className = 'btn btn-primary';
           btn.textContent = round.isFinal ? 'Finalize Tournament 🏆' : 'Advance this round →';
-          btn.disabled = !canAdvance(round);
-          btn.addEventListener('click', function () { onAdvanceRound(ri); });
+          btn.disabled = !self.canAdvance(round);
+          btn.addEventListener('click', function () { self.onAdvanceRound(ri); });
           actions.appendChild(btn);
           var pc = document.createElement('div');
           pc.className = 'pick-counter';
-          var need = minPicks(round);
-          pc.textContent = 'Picked ' + pickedCount + ' / ' + need + ' to advance';
+          pc.textContent = 'Picked ' + pickedCount + ' / ' + self.minPicks(round) + ' to advance';
           actions.appendChild(pc);
         } else if (ri < activeIdx) {
           var done = document.createElement('div');
@@ -316,47 +439,45 @@
       els.bracket.appendChild(col);
     });
 
-    renderChampion(t);
-  }
+    this.renderChampion(t);
+  };
 
-  function renderChampion(t) {
+  TournamentView.prototype.renderChampion = function (t) {
     var hasChamp = t.champion && (t.simulated || t.rounds[t.rounds.length - 1].status === 'scored');
     if (hasChamp) {
-      els.champion.hidden = false;
-      els.champion.innerHTML =
+      this.els.champion.hidden = false;
+      this.els.champion.innerHTML =
         '<h3>🏆 Champion</h3>' +
         '<div class="crown">👑</div>' +
         '<div class="who"></div>' +
         '<div class="ru">Runner-up: <span class="ru-name"></span></div>' +
         '<div class="third">3rd: <span class="third-name"></span></div>' +
         '<div class="fourth">4th: <span class="fourth-name"></span></div>';
-      els.champion.querySelector('.who').textContent = t.champion === S.BYE ? '—' : t.champion;
-      els.champion.querySelector('.ru-name').textContent = t.runnerUp === S.BYE ? '—' : t.runnerUp;
-      els.champion.querySelector('.third-name').textContent = (!t.third || t.third === S.BYE) ? '—' : t.third;
-      els.champion.querySelector('.fourth-name').textContent = (!t.fourth || t.fourth === S.BYE) ? '—' : t.fourth;
+      this.els.champion.querySelector('.who').textContent = t.champion === S.BYE ? '—' : t.champion;
+      this.els.champion.querySelector('.ru-name').textContent = t.runnerUp === S.BYE ? '—' : t.runnerUp;
+      this.els.champion.querySelector('.third-name').textContent = (!t.third || t.third === S.BYE) ? '—' : t.third;
+      this.els.champion.querySelector('.fourth-name').textContent = (!t.fourth || t.fourth === S.BYE) ? '—' : t.fourth;
     } else {
-      els.champion.hidden = true;
+      this.els.champion.hidden = true;
     }
-  }
+  };
 
-  function minPicks(round) {
-    // total minimum picks needed = number of reals in shows of size>=3 contribute 2,
-    // shows of size <3 contribute their real count. For a clean tournament this is 2*shows.
+  TournamentView.prototype.minPicks = function (round) {
     var total = 0;
     round.shows.forEach(function (h) {
       var reals = h.contestants.filter(function (c) { return !c.isBye; });
       total += Math.min(2, reals.length);
     });
     return total;
-  }
-  function countPicked(round) {
+  };
+  TournamentView.prototype.countPicked = function (round) {
     var n = 0;
     round.shows.forEach(function (h) {
       h.contestants.forEach(function (c) { if (!c.isBye && c.picked) n++; });
     });
     return n;
-  }
-  function canAdvance(round) {
+  };
+  TournamentView.prototype.canAdvance = function (round) {
     var ok = true;
     round.shows.forEach(function (h) {
       var reals = h.contestants.filter(function (c) { return !c.isBye && c.status === 'pending'; });
@@ -365,254 +486,172 @@
       else if (picked !== reals.length) ok = false;
     });
     return ok;
-  }
+  };
 
   // --- Interactions ------------------------------------------------------
-  function onPick(ri, show, contestant) {
-    var round = state.tournament.rounds[ri];
+  TournamentView.prototype.onPick = function (ri, show, contestant) {
     var reals = show.contestants.filter(function (c) { return !c.isBye && c.status === 'pending'; });
     if (reals.length >= 3) {
-      // toggle; cap at 2 picks per this show
       if (!contestant.picked) {
         var pickedHere = reals.filter(function (c) { return c.picked; }).length;
-        if (pickedHere >= 2) return; // already 2 in this show
+        if (pickedHere >= 2) return;
       }
       contestant.picked = !contestant.picked;
     } else {
       contestant.picked = !contestant.picked;
     }
-    render();
-  }
+    this.render();
+  };
 
-  function onStartShow(ri, show) {
+  TournamentView.prototype.onStartShow = function (ri, show) {
     S.startShow(show);
-    render();
-    persist();
-  }
+    this.render();
+    this.persist();
+  };
 
-  function onEndShow(ri, show) {
+  TournamentView.prototype.onEndShow = function (ri, show) {
     S.endShow(show);
-    // Stop the score change (Live View freezes on End) and automatically
-    // highlight the top 2 (by score) to advance. The user can still change
-    // these picks manually before advancing the round.
     S.autoPickTopTwo(show);
-    render();
-    persist();
-  }
+    this.render();
+    this.persist();
+  };
 
-  // --- Persistence (durable cache) ------------------------------------
-  // Every generated tournament is saved to the shared store (localStorage),
-  // and the current one is restored when the Dashboard reloads — so navigating
-  // away and back (or reopening the tab) never loses a tournament.
-  function persist() {
-    if (state.tournament) {
-      // Lock in the typed Tournament Name at the moment we persist (i.e. when a
-      // live status is confirmed). This value then flows to the Live View, which
-      // only swaps "TOURNAMENT" -> name once a show is live.
-      if (els.tournamentName) state.tournament.name = els.tournamentName.value.trim() || '';
-      try { window.SurfinStore.put(state.tournament); } catch (e) {}
-      // keep the Live-link fallback too for same-tab convenience
-      try { sessionStorage.setItem('surfinlive.tournament', JSON.stringify(state.tournament)); } catch (e) {}
-    }
-    var link = document.querySelector('.nav-link[href="index.html"]');
-    if (link) link.setAttribute('data-has-bracket', state.tournament ? '1' : '');
-  }
-
-  function restore() {
-    try {
-      var t = window.SurfinStore.current();
-      if (t && t.rounds && t.rounds.length) {
-        state.tournament = t;
-        state.mode = t.simulated ? 'sim' : 'manual';
-        if (t.rounds[t.rounds.length - 1].status === 'scored') state.mode = 'sim';
-        if (els.tournamentName) els.tournamentName.value = t.name || '';
-        els.toolbar.hidden = false;
-        if (els.simulate) els.simulate.hidden = false;
-        setBanner(state.mode === 'sim'
-          ? 'Restored previous bracket (simulated). Hit Reset to start over or switch to manual.'
-          : 'Restored previous bracket — pick 2 to advance in each show, or hit Simulate.', false);
-        render();
-      }
-    } catch (e) {}
-  }
-
-  function onAdvanceRound(ri) {
-    var res = S.scoreRound(state.tournament, ri);
+  TournamentView.prototype.onAdvanceRound = function (ri) {
+    var res = S.scoreRound(this.state.tournament, ri);
     if (!res.ok) { alert(res.errors.join('\n')); return; }
-    state.tournament.rounds[ri].status = 'scored';
-    render();
-    persist();
-  }
+    this.state.tournament.rounds[ri].status = 'scored';
+    this.render();
+    this.persist();
+  };
+
+  TournamentView.prototype.simulate = function () {
+    if (!this.state.tournament) return;
+    S.simulateTournament(this.state.tournament);
+    this.state.mode = 'sim';
+    this.state.tournament.rounds.forEach(function (r) { r.status = 'scored'; });
+    this.setBanner('Simulated (random scores). Hit Reset to start over or switch to manual.', true);
+    this.render();
+    this.persist();
+  };
+
+  TournamentView.prototype.resetResults = function () {
+    if (!this.state.tournament) return;
+    S.resetResults(this.state.tournament);
+    this.state.tournament.rounds.forEach(function (r) { r.status = undefined; });
+    this.state.mode = 'manual';
+    this.setBanner('Manual mode — pick 2 to advance in each show, or hit Simulate for random results.', false);
+    this.render();
+    this.persist();
+  };
+
+  TournamentView.prototype.setBanner = function (text, scored) {
+    this.els.modeBanner.hidden = false;
+    this.els.modeBanner.textContent = text;
+    this.els.modeBanner.classList.toggle('scored', !!scored);
+  };
 
   // --- Re-randomize open shows in the active round ----------------------
-  // Fisher-Yates shuffle of a copy (does not mutate the input array).
-  function shuffleArray(arr) {
+  TournamentView.prototype.shuffleArray = function (arr) {
     var a = arr.slice();
     for (var i = a.length - 1; i > 0; i--) {
       var j = Math.floor(Math.random() * (i + 1));
       var t = a[i]; a[i] = a[j]; a[j] = t;
     }
     return a;
-  }
+  };
 
-  // Re-shuffle the contestant names in every show of the active round that is
-  // still "open". Shows that have started (live), ended, or been closed (round
-  // advanced) are left exactly as they are.
-  function randomizeRound() {
-    var t = state.tournament;
+  TournamentView.prototype.randomizeRound = function () {
+    var t = this.state.tournament;
     if (!t || !t.rounds || !t.rounds.length) return;
-    var ri = activeRoundIndex(t);
-    if (ri < 0) return; // nothing left to play
+    var ri = this.activeRoundIndex(t);
+    if (ri < 0) return;
     var round = t.rounds[ri];
     var changed = 0;
+    var self = this;
     round.shows.forEach(function (show) {
-      // Only touch shows still in the "open" phase: not started/live, not ended,
-      // and not closed (round already advanced).
       var phase = show.phase || 'open';
       if (phase === 'live' || phase === 'ended' || show.status === 'closed') return;
-      // Collect the real (non-bye) contestants and shuffle just their order,
-      // then write them back into the real slots so BYE positions stay fixed.
       var realIdx = [];
       var reals = [];
       show.contestants.forEach(function (c, ci) {
         if (!c.isBye) { realIdx.push(ci); reals.push(c); }
       });
-      if (reals.length < 2) return; // nothing meaningful to shuffle
-      var shuffled = shuffleArray(reals);
+      if (reals.length < 2) return;
+      var shuffled = self.shuffleArray(reals);
       realIdx.forEach(function (ci, k) { show.contestants[ci] = shuffled[k]; });
       changed++;
     });
     if (changed > 0) {
-      render();
-      persist();
+      this.render();
+      this.persist();
     }
-  }
+  };
 
-  // Source of truth for the per-show size: the value the user typed in the
-  // on-page control. Falls back to the persisted setting only if the control
-  // isn't present. We deliberately read the INPUT directly (not localStorage)
-  // so clicking Generate uses exactly what's on screen — no hidden cross-page
-  // state can override it.
-  function getDashboardK() {
-    var el = document.getElementById('cps-dash');
-    var raw = el ? parseInt(el.value, 10) : NaN;
-    if (!isNaN(raw) && raw >= 3 && raw <= 8) return raw;
-    return (window.SurfinSettings) ? window.SurfinSettings.getContestantsPerShow() : 4;
-  }
+  // --- Delete (soft delete in the backend) ------------------------------
+  TournamentView.prototype.deleteTournament = function () {
+    var self = this;
+    var t = this.state.tournament;
+    var shortId = t && t.shortId;
+    var tournamentId = t && t.tournamentId;
 
-  function generate() {
-    clearInputError();
-    var names = parseNames();
-    if (names.length < 2) { showInputError('Enter at least 2 participant names.'); return; }
+    // Backend first: soft delete + audit. If the call fails (server down),
+    // still remove the view locally so the UI stays responsive.
+    window.SurfinStore.deleteTournament(t).then(function () {
+      if (t) t.__deleted = true;
+      self.refreshHeader();
+    });
+
     try {
-      // Use the on-page control's value directly; never fall through to a stale
-      // stored default. (Prefs are still persisted so other pages stay in sync.)
-      var genOpts = { contestantsPerShow: getDashboardK() };
-      state.tournament = S.generateTournament(names, null, genOpts);
-    } catch (e) {
-      showInputError(e.message);
-      return;
+      if (t) {
+        var all = window.SurfinStore.list();
+        for (var i = 0; i < all.length; i++) {
+          if (all[i].tournament && all[i].tournament.shortId === shortId) {
+            window.SurfinStore.remove(all[i].id);
+            break;
+          }
+        }
+      }
+    } catch (e) {}
+
+    this.root.remove();
+    placeGenerateButton();
+  };
+
+  // =======================================================================
+  // View collection management
+  // =======================================================================
+  var views = [];
+
+  function placeGenerateButton() {
+    // Keep the generate button directly under the latest Tournament View,
+    // aligned left (it is a grid item with justify-self: start).
+    if (!generateNewBtn) return;
+    if (viewsRoot && viewsRoot.lastElementChild) {
+      viewsRoot.appendChild(generateNewBtn);
     }
-    state.mode = 'manual';
-    els.toolbar.hidden = false;
-    if (els.simulate) els.simulate.hidden = false;
-    // Capture the typed Tournament Name now so the centered name line renders
-    // immediately on generate (persist() also locks it in, but render() runs first).
-    state.tournament.name = (els.tournamentName ? els.tournamentName.value.trim() : '') || 'Untitled Tournament';
-    setBanner('Manual mode — pick 2 to advance in each show, or hit Simulate for random results.', false);
-    render();
-    persist();
   }
 
-  function simulate() {
-    if (!state.tournament) return;
-    S.simulateTournament(state.tournament);
-    state.mode = 'sim';
-    state.tournament.rounds.forEach(function (r) { r.status = 'scored'; });
-    setBanner('Simulated (random scores). Hit Reset to start over or switch to manual.', true);
-    render();
-    persist();
-  }
-
-  function resetResults() {
-    if (!state.tournament) return;
-    S.resetResults(state.tournament);
-    state.tournament.rounds.forEach(function (r) { r.status = undefined; });
-    state.mode = 'manual';
-    setBanner('Manual mode — pick 2 to advance in each show, or hit Simulate for random results.', false);
-    render();
-    persist();
-  }
-
-  function setBanner(text, scored) {
-    els.modeBanner.hidden = false;
-    els.modeBanner.textContent = text;
-    els.modeBanner.classList.toggle('scored', !!scored);
+  function createTournamentView() {
+    if (!template || !viewsRoot) return;
+    var src = template.content || template.innerHTML;
+    var node = (src.firstElementChild || src.querySelector('.tournament-view')).cloneNode(true);
+    viewsRoot.appendChild(node);
+    var view = new TournamentView(node, views.length);
+    views.push(view);
+    placeGenerateButton();
+    view.refreshHeader();
+    return view;
   }
 
   // --- Wire up -----------------------------------------------------------
-  els.generate.addEventListener('click', generate);
-  els.clearInput.addEventListener('click', function () {
-    els.names.value = ''; clearInputError();
-  });
-  if (els.simulate) els.simulate.addEventListener('click', simulate);
-  els.reset.addEventListener('click', resetResults);
-  if (els.roundRandomizer) els.roundRandomizer.addEventListener('click', randomizeRound);
-
-  // --- Dashboard "Contestants per show" control -------------------------
-  // Lives directly on the Dashboard so the setting can't be lost to cross-page
-  // cache/state issues. Persists via SurfinSettings (so the Settings page and
-  // Live View stay in sync) and shows a live readout of the next bracket.
-  var cpsDash = document.getElementById('cps-dash');
-  var cpsDashOk = document.getElementById('cps-dash-ok');
-  var cpsReadout = document.getElementById('cps-readout');
-  function currentK() {
-    return (window.SurfinSettings) ? window.SurfinSettings.getContestantsPerShow() : 4;
-  }
-  function refreshCpsReadout() {
-    if (!cpsReadout) return;
-    var k = currentK();
-    var n = Math.max(0, parseNames().length);
-    var txt;
-    if (n === 0) {
-      txt = 'Next bracket: shows of ' + k + ' (top 2 advance; Final = 4). Enter names above.';
-    } else {
-      var c = S.padToCleanSize(n, k);
-      var firstSizes = S.partitionKExt(c, k) || S.partition4or5(c);
-      txt = 'Next bracket: ' + n + ' names -> ' + firstSizes.length + ' show(s) of ' +
-            firstSizes.join('/') + ' (top 2 advance; Final = 4).';
-    }
-    cpsReadout.textContent = txt;
-  }
-  if (cpsDash && cpsDashOk) {
-    // reflect stored value on load
-    var storedK = currentK();
-    cpsDash.value = storedK;
-    refreshCpsReadout();
-    cpsDash.addEventListener('input', refreshCpsReadout);
-    cpsDashOk.addEventListener('click', function () {
-      var v = parseInt(cpsDash.value, 10);
-      if (isNaN(v)) return;
-      var clamped = (window.SurfinSettings)
-        ? window.SurfinSettings.set({ contestantsPerShow: v }).contestantsPerShow
-        : (v < 3 ? 3 : v > 8 ? 8 : v);
-      cpsDash.value = clamped;
-      refreshCpsReadout();
+  if (generateNewBtn) {
+    generateNewBtn.addEventListener('click', function () {
+      createTournamentView();
     });
   }
 
-  document.querySelectorAll('.chip').forEach(function (chip) {
-    chip.addEventListener('click', function () {
-      var n = parseInt(chip.getAttribute('data-sample'), 10);
-      els.names.value = sampleNames(n);
-      clearInputError();
-    });
-  });
-
-  // Seed with a sample so the page is immediately usable.
-  els.names.value = sampleNames(8);
-
-  // Restore the most recently generated tournament (if any) so navigating
-  // back to the Dashboard never loses state.
-  restore();
+  // Always start with exactly ONE Tournament View. Previously saved cycles
+  // stay in the store (localStorage + server) so Short-ID / Dynamic / Judge
+  // resolution still works, but they are not re-rendered as views here.
+  createTournamentView();
 })();

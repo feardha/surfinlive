@@ -14,6 +14,7 @@ function loadInWindow(file) {
   const fn = new window.Function(code);
   fn.call(window);
 }
+loadInWindow('store.js');
 loadInWindow('tournament.js');
 loadInWindow('live.js');
 
@@ -38,18 +39,16 @@ check('meta says surfers in the water', /surfers in the water/.test(window.docum
 // 2) Scores are sorted descending (live leaderboard) on first render
 const sc = scores();
 let sorted = true;
-for (let i = 1; i < sc.length; i++) if (sc[i] > sc[i - 1]) return false;
+for (let i = 1; i < sc.length; i++) if (sc[i] > sc[i - 1]) sorted = false;
 check('rows sorted by score descending', sorted);
 
 // 2b) Scores are floats with exactly two decimals
 const scoreText = Array.from(window.document.querySelectorAll('#live-list .live-score')).map(e => e.textContent);
 check('scores formatted as two-decimal floats', scoreText.every(s => /^\d+\.\d{2}$/.test(s)));
 
-// 3) "New random show" button re-renders without error
-const before = window.document.getElementById('live-show').textContent;
-window.document.getElementById('live-new').click();
-check('still has rows after New random show', rows().length >= 1);
-check('still valid scores after New random show', scores().every(s => !isNaN(s)));
+// 3) The Live View has no manual "New random show" button any more — it mirrors the
+//    Dashboard's latest-started show. Re-render is driven by pollLatestShow(); just
+//    confirm the current render is stable and well-formed.
 
 // 4) Number column present and sequential (1..N)
 const nums = Array.from(window.document.querySelectorAll('#live-list .live-num')).map(e => parseInt(e.textContent, 10));

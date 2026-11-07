@@ -415,20 +415,41 @@
     var rows = displayRowsForDetails();
     els.detailsBody.innerHTML = '';
     rows.forEach(function (row, i) {
+      // The contestant's colour now tints the "+" button, replacing the colour
+      // column that used to sit beside the name.
       var color = (row.contestant && row.contestant.color) ? row.contestant.color : COLORS[i % COLORS.length];
       var tr = document.createElement('div');
       tr.className = 'details-row';
-      var p = document.createElement('span'); p.className = 'details-prio'; p.textContent = String(i + 1);
-      var c = document.createElement('span'); c.className = 'details-color';
-      var sw = document.createElement('span');
-      sw.className = 'priority-badge';
-      sw.style.backgroundColor = FLAG_COLORS[color] || color;
-      sw.style.color = (color === 'white' || color === 'yellow') ? '#1a1a1a' : '#ffffff';
-      sw.textContent = String(i + 1);
-      c.appendChild(sw);
+
+      // 1. Action, far left.
+      var a = document.createElement('span'); a.className = 'details-action';
+      var btn = document.createElement('button');
+      btn.className = 'btn btn-sm details-action-btn';
+      btn.textContent = '+';
+      btn.title = 'Add score \u00b7 ' + color;
+      btn.style.backgroundColor = FLAG_COLORS[color] || color;
+      btn.style.color = (color === 'white' || color === 'yellow') ? '#1a1a1a' : '#ffffff';
+      btn.addEventListener('click', function () { openScoreDialog(row); });
+      a.appendChild(btn);
+
+      // 2. Name.
       var n = document.createElement('span'); n.className = 'details-name'; n.textContent = row.name;
-      var s = document.createElement('span'); s.className = 'details-score'; s.textContent = fmt(row.tw1 + row.tw2);
-      tr.appendChild(p); tr.appendChild(c); tr.appendChild(n); tr.appendChild(s);
+
+      // 3. Score slots 1..MAX_SCORES: one fixed cell per slot so the columns line
+      // up with the numbered header. A slot only shows text once a score has
+      // actually been entered there; empty slots stay blank but hold their place.
+      var slots = [];
+      for (var k = 0; k < MAX_SCORES; k++) slots.push(null);
+      scoreList(row).slice(0, MAX_SCORES).forEach(function (v, idx) { slots[idx] = v; });
+      var scoreCells = slots.map(function (v) {
+        var cell = document.createElement('span');
+        cell.className = 'details-score' + (v == null ? ' is-empty' : '');
+        if (v != null) cell.textContent = fmt(v);
+        return cell;
+      });
+
+      tr.appendChild(a); tr.appendChild(n);
+      scoreCells.forEach(function (cell) { tr.appendChild(cell); });
       els.detailsBody.appendChild(tr);
     });
   }
@@ -450,7 +471,99 @@
     return out;
   }
 
+  // ── Score list ──────────────────────────────────────────────────────────
+  // Each athlete keeps up to MAX_SCORES entered wave scores, in the order the
+  // judge added them. The two highest of those are the counting waves, which is
+  // what the Running Score table shows as High 1st / High 2nd and what feeds
+  // the athlete's heat total.
+  var MAX_SCORES = 10;
+
+  // The score list for a row, backfilled once from the legacy tw1/tw2 pair so
+  // shows that predate the list keep their values.
+  function scoreList(row) {
+    if (!Array.isArray(row.scores)) {
+      row.scores = [];
+      if (Number(row.tw1) > 0) row.scores.push(Math.round(Number(row.tw1) * 100) / 100);
+      if (Number(row.tw2) > 0) row.scores.push(Math.round(Number(row.tw2) * 100) / 100);
+    }
+    return row.scores;
+  }
+
+  // Resolve the contestant this row belongs to (row.contestant may be absent).
+  function contestantFor(row) {
+    if (row.contestant) return row.contestant;
+    if (!state || !state._liveShow) return null;
+    return state._liveShow.contestants.filter(function (c) {
+      return !c.isBye && c.name === row.name;
+    })[0] || null;
+  }
+
+  // Recompute the counting waves + heat total from the score list and write
+  // them onto the contestant so Live View and Dynamic View mirror the judge.
+  function rederive(row) {
+    var desc = scoreList(row).slice().sort(function (a, b) { return b - a; });
+    row.tw1 = desc[0] || 0;
+    row.tw2 = desc[1] || 0;
+    var total = Math.round((row.tw1 + row.tw2) * 100) / 100;
+    var con = contestantFor(row);
+    if (con) {
+      con.tw1 = row.tw1;      // dyn mirrors High 1st
+      con.tw2 = row.tw2;      // dyn mirrors High 2nd
+      con.score = total;      // the number the spectator sees
+      con.scores = scoreList(row).slice(); // persist the list for reloads
+    }
+    return total;
+  }
+
+  // Apply a manually entered wave score to this athlete. The list holds at most
+  // MAX_SCORES entries; once it is full the LOWEST score is dropped, so the
+  // column always shows the athlete's best 10 waves.
+  function applyScore(row, value) {
+    if (!row || !isFinite(value)) return;
+    var v = Math.round(value * 100) / 100;
+    var list = scoreList(row);
+    list.push(v);
+    while (list.length > MAX_SCORES) {
+      var lowest = Math.min.apply(null, list);
+      list.splice(list.indexOf(lowest), 1);
+    }
+    rederive(row);
+    render();           // repaints the Running Score table + Details panel
+    broadcastChange();  // persists the tournament and notifies the dyn view
+  }
+
+  // Accepts a bare number as well as a decimal one: "7" -> 7.00, "7." -> 7.00,
+  // "7.5" -> 7.50, ".5" -> 0.50, "12.50" -> 12.50. A comma is treated as the
+  // decimal separator. Anything else returns null, so a bad entry is rejected
+  // rather than silently becoming 0.
+  function parseScoreInput(raw) {
+    var v = String(raw == null ? '' : raw).trim().replace(',', '.');
+    if (!v || v === '.' || !/^\d{0,2}(\.\d{0,2})?$/.test(v)) return null;
+    var n = parseFloat(v);
+    if (!isFinite(n)) return null;
+    return Math.round(n * 100) / 100;
+  }
+
+  function openScoreDialog(row) {
+    var dialog = document.getElementById('j-score-dialog');
+    var input = document.getElementById('j-score-input');
+    if (!dialog || !input) return;
+    input.value = '';
+    dialog.showModal();
+    dialog.addEventListener('close', function onClose() {
+      dialog.removeEventListener('close', onClose);
+      if (dialog.returnValue !== 'ok') return;
+      var val = parseScoreInput(input.value);
+      if (val == null) return;
+      applyScore(row, val);
+    }, { once: true });
+  }
+
+  // Clears the live-score interval. Restored after the "Add score" edit removed
+  // it by accident, which left every stopTicks() caller below undefined and
+  // broke the Judge Panel with "ReferenceError: stopTicks is not defined".
   function stopTicks() { if (ticks) { clearInterval(ticks); ticks = null; } }
+
   function stopCountdown() { if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; } }
 
   function persistLiveScores() {
@@ -473,33 +586,11 @@
   }
 
   function startTicks() {
+    // DISABLED: this used to invent a random score for every athlete every 1.5s,
+    // which overwrote anything a judge had entered. Scores are now entered by
+    // hand through the Details panel "+" (see applyScore). Kept as a stop-only
+    // no-op so every existing startTicks()/stopTicks() caller stays valid.
     stopTicks();
-    ticks = setInterval(function () {
-      if (!state) return;
-      var conByType = {};
-      if (state._liveShow) {
-        state._liveShow.contestants.forEach(function (c) { if (!c.isBye) conByType[c.name] = c; });
-      }
-      state.names.forEach(function (row) {
-        // Each constituent wave ticks up to 20.00; the surfer's live TOTAL is the
-        // real score the spectator sees (persisted to the contestant).
-        row.tw1 = Math.min(20, Math.round((row.tw1 + Math.random() * 0.5) * 100) / 100);
-        row.tw2 = Math.min(20, Math.round((row.tw2 + Math.random() * 0.5) * 100) / 100);
-        var totalScore = Math.round((row.tw1 + row.tw2) * 100) / 100;
-        if (row.contestant) {
-          row.contestant.score = totalScore;
-          row.contestant.tw1 = row.tw1;   // persist wave 1 so dyn mirrors High 1st
-          row.contestant.tw2 = row.tw2;   // persist wave 2 so dyn mirrors High 2nd
-        } else if (conByType[row.name]) {
-          conByType[row.name].score = totalScore;
-          conByType[row.name].tw1 = row.tw1;
-          conByType[row.name].tw2 = row.tw2;
-        }
-      });
-      render();
-      broadcastChange();
-      if (!selectedIsLive()) { stopTicks(); broadcastChange(); }
-    }, 1500);
   }
 
   function startCountdown(t) {
@@ -534,8 +625,12 @@
       var con = conByType[nm];
       if (show.show.phase === 'live') {
         // Resume from the persisted waves if we re-opened a live show; else fresh.
+        // Resume from the persisted waves if we re-opened a live show; a brand
+        // new live show starts at zero and waits for the judge to enter scores
+        // (it used to seed a random 0.0-12.0 per wave, which would then survive
+        // the best-two-waves merge and pollute the real entry).
         if (con && con.tw1 != null && con.tw2 != null) { tw1 = con.tw1; tw2 = con.tw2; }
-        else { tw1 = Math.round(Math.random() * 120) / 10; tw2 = Math.round(Math.random() * 120) / 10; }
+        else { tw1 = 0; tw2 = 0; }
       } else {
         // Closed / standby: seed from the stored final score so the scoreboard shows real values.
         var total = (con && con.score != null) ? con.score : 0;
@@ -543,7 +638,10 @@
         tw2 = (con && con.tw2 != null) ? con.tw2 : 0;
       }
       if (con) { con.tw1 = tw1; con.tw2 = tw2; } // persist both waves so dyn mirrors them
-      return { name: nm, color: color, priority: COLORS.indexOf(color) + 1, tw1: tw1, tw2: tw2, contestant: con || null };
+      // Restore the judge's entered score list; scoreList() backfills it from the
+      // wave pair for shows scored before the list existed.
+      var scores = (con && Array.isArray(con.scores)) ? con.scores.slice() : undefined;
+      return { name: nm, color: color, priority: COLORS.indexOf(color) + 1, tw1: tw1, tw2: tw2, scores: scores, contestant: con || null };
     });
     updateTournamentName(t);
     render();
@@ -579,6 +677,31 @@
     }
     var match = window.SurfinStore.getByShortId(sid);
     if (!match) {
+      if (window.SurfinStore.getByShortIdAsync) {
+        window.SurfinStore.getByShortIdAsync(sid, function (remoteMatch) {
+          if (remoteMatch) {
+            requestedShortId = sid;
+            currentTournamentId = remoteMatch.id;
+            state = null;
+            els.searchError.hidden = true;
+            els.search.hidden = true;
+            els.broadcast.hidden = false;
+            els.championCard.hidden = true;
+            els.liveCard.hidden = false;
+            els.detailCard.hidden = false;
+            if (isConcluded(remoteMatch.tournament)) {
+              renderConcluded(remoteMatch.tournament);
+            } else {
+              pollLatestShow();
+            }
+          } else {
+            els.broadcast.hidden = true;
+            els.searchError.textContent = 'No tournament found for Short ID "' + sid + '". It may have been cleared, or the code is incorrect.';
+            els.searchError.hidden = false;
+          }
+        });
+        return;
+      }
       els.broadcast.hidden = true;
       els.searchError.textContent = 'No tournament found for Short ID "' + sid + '". It may have been cleared, or the code is incorrect.';
       els.searchError.hidden = false;
@@ -610,6 +733,23 @@
         els.detailsPanel.hidden = !els.detailsPanel.hidden;
         els.detailsBtn.classList.toggle('active', !els.detailsPanel.hidden);
         renderDetailsPanel();
+      });
+    }
+    // Cancel is a plain type="button", so OK is the form's only submit button.
+    // That is what makes Enter in the input submit OK: implicit submission clicks
+    // the first submit button, which used to be Cancel.
+    var scoreDialog = document.getElementById('j-score-dialog');
+    var scoreCancel = document.getElementById('j-score-cancel');
+    if (scoreDialog && scoreCancel) {
+      scoreCancel.addEventListener('click', function () { scoreDialog.close('cancel'); });
+      scoreDialog.querySelectorAll('.score-presets button').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var input = document.getElementById('j-score-input');
+          if (input) {
+            input.value = btn.getAttribute('data-score') || '';
+            input.focus();
+          }
+        });
       });
     }
   }
